@@ -10,7 +10,7 @@ export async function getVehicle({
   id,
   userId,
 }: Pick<Vehicle, "id" | "userId">) {
-  const db = getDb();
+  const db = await getDb();
   const [vehicle] = await db
     .select()
     .from(vehicles)
@@ -19,7 +19,7 @@ export async function getVehicle({
 }
 
 export async function getVehicleListItems({ userId }: Pick<Vehicle, "userId">) {
-  const db = getDb();
+  const db = await getDb();
   return db
     .select()
     .from(vehicles)
@@ -28,7 +28,7 @@ export async function getVehicleListItems({ userId }: Pick<Vehicle, "userId">) {
 }
 
 export async function createVehicle(input: NewVehicle) {
-  const db = getDb();
+  const db = await getDb();
   const [vehicle] = await db.insert(vehicles).values(input).returning();
   if (!vehicle) throw new Error("Failed to create vehicle");
   return vehicle;
@@ -38,7 +38,7 @@ export async function deleteVehicle({
   id,
   userId,
 }: Pick<Vehicle, "id" | "userId">) {
-  const db = getDb();
+  const db = await getDb();
   return db
     .delete(vehicles)
     .where(and(eq(vehicles.id, id), eq(vehicles.userId, userId)));

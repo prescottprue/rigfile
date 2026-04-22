@@ -1,5 +1,5 @@
-import { redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+
 import {
   createUser,
   getUserByEmail,
@@ -14,6 +14,8 @@ export type LoginInput = {
   redirectTo?: string;
 };
 
+export type LoginResult = { error: string } | { redirectTo: string };
+
 function safeRedirect(to: string | undefined, fallback = "/vehicles") {
   if (!to || typeof to !== "string") return fallback;
   if (!to.startsWith("/") || to.startsWith("//")) return fallback;
@@ -22,36 +24,36 @@ function safeRedirect(to: string | undefined, fallback = "/vehicles") {
 
 export const loginFn = createServerFn({ method: "POST" })
   .inputValidator((data: LoginInput) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<LoginResult> => {
     const user = await verifyLogin(data.email, data.password);
     if (!user) {
-      return { error: "Invalid email or password" as const };
+      return { error: "Invalid email or password" };
     }
     const session = await useAppSession();
     await session.update({ userId: user.id });
-    throw redirect({ to: safeRedirect(data.redirectTo) });
+    return { redirectTo: safeRedirect(data.redirectTo) };
   });
 
 export const signupFn = createServerFn({ method: "POST" })
   .inputValidator((data: LoginInput) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<LoginResult> => {
     if (data.password.length < 8) {
-      return { error: "Password must be at least 8 characters" as const };
+      return { error: "Password must be at least 8 characters" };
     }
     const existing = await getUserByEmail(data.email);
     if (existing) {
-      return { error: "A user with this email already exists" as const };
+      return { error: "A user with this email already exists" };
     }
     const user = await createUser(data.email, data.password);
     const session = await useAppSession();
     await session.update({ userId: user.id });
-    throw redirect({ to: safeRedirect(data.redirectTo) });
+    return { redirectTo: safeRedirect(data.redirectTo) };
   });
 
 export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
   const session = await useAppSession();
   await session.clear();
-  throw redirect({ to: "/" });
+  return { redirectTo: "/" as const };
 });
 
 export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(

@@ -13,7 +13,10 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "REPLACE_WITH_HYPERDRIVE_ID"
+      "id": "REPLACE_WITH_HYPERDRIVE_ID",
+      // In dev, wrangler/miniflare routes Hyperdrive requests to this URL so
+      // the local Postgres from `npm run docker:dev` stands in for Neon.
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5440/vehicle_work_log"
     }
   ],
   // R2 bucket holds avatar uploads. Create with:

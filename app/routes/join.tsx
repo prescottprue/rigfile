@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { signupFn } from "~/auth/server-fns";
@@ -12,7 +12,6 @@ export const Route = createFileRoute("/join")({
 });
 
 function JoinPage() {
-  const router = useRouter();
   const { redirectTo } = Route.useSearch();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -28,11 +27,13 @@ function JoinPage() {
       const result = await signupFn({
         data: { email, password, redirectTo },
       });
-      if (result && "error" in result) {
+      if ("error" in result) {
         setError(result.error);
       } else {
-        await router.invalidate();
+        window.location.assign(result.redirectTo);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign up failed");
     } finally {
       setPending(false);
     }

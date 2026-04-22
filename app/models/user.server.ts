@@ -8,19 +8,19 @@ import { passwords, users } from "~/db/schema";
 export type { User };
 
 export async function getUserById(id: User["id"]) {
-  const db = getDb();
+  const db = await getDb();
   const [user] = await db.select().from(users).where(eq(users.id, id));
   return user ?? null;
 }
 
 export async function getUserByEmail(email: User["email"]) {
-  const db = getDb();
+  const db = await getDb();
   const [user] = await db.select().from(users).where(eq(users.email, email));
   return user ?? null;
 }
 
 export async function createUser(email: User["email"], password: string) {
-  const db = getDb();
+  const db = await getDb();
   const hash = await bcrypt.hash(password, 10);
   return db.transaction(async (tx) => {
     const [user] = await tx.insert(users).values({ email }).returning();
@@ -31,7 +31,7 @@ export async function createUser(email: User["email"], password: string) {
 }
 
 export async function deleteUserByEmail(email: User["email"]) {
-  const db = getDb();
+  const db = await getDb();
   return db.delete(users).where(eq(users.email, email));
 }
 
@@ -39,7 +39,7 @@ export async function verifyLogin(
   email: User["email"],
   password: string,
 ): Promise<User | null> {
-  const db = getDb();
+  const db = await getDb();
   const row = await db
     .select({ user: users, hash: passwords.hash })
     .from(users)

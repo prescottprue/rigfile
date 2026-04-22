@@ -11,7 +11,7 @@ export async function getLog({
   userId,
   vehicleId,
 }: Pick<Log, "id" | "userId" | "vehicleId">) {
-  const db = getDb();
+  const db = await getDb();
   const [log] = await db
     .select()
     .from(logs)
@@ -29,7 +29,7 @@ export async function getLogListItems({
   userId,
   vehicleId,
 }: Pick<Log, "userId" | "vehicleId">) {
-  const db = getDb();
+  const db = await getDb();
   return db
     .select()
     .from(logs)
@@ -38,7 +38,7 @@ export async function getLogListItems({
 }
 
 export async function createLog(input: NewLog) {
-  const db = getDb();
+  const db = await getDb();
   const [log] = await db.insert(logs).values(input).returning();
   if (!log) throw new Error("Failed to create log");
   return log;
@@ -49,7 +49,7 @@ export async function deleteLog({
   userId,
   vehicleId,
 }: Pick<Log, "id" | "userId" | "vehicleId">) {
-  const db = getDb();
+  const db = await getDb();
   return db
     .delete(logs)
     .where(
@@ -72,7 +72,7 @@ export async function searchLogs({
   userId: Log["userId"];
   query: string;
 }): Promise<Log[]> {
-  const db = getDb();
+  const db = await getDb();
   const trimmed = query.trim();
   if (!trimmed) return [];
 

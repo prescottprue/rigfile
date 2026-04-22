@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { logoutFn } from "~/auth/server-fns";
@@ -8,13 +8,15 @@ export const Route = createFileRoute("/logout")({
 });
 
 function LogoutPage() {
-  const router = useRouter();
   useEffect(() => {
-    logoutFn().catch(() => {
-      // redirect is thrown; router.navigate happens via invalidate below
-    });
-    void router.invalidate();
-  }, [router]);
+    logoutFn()
+      .then((result) => {
+        window.location.assign(result.redirectTo);
+      })
+      .catch(() => {
+        window.location.assign("/");
+      });
+  }, []);
   return (
     <main className="flex min-h-screen items-center justify-center">
       <p className="text-slate-600">Signing out…</p>

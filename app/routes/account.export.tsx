@@ -22,7 +22,7 @@ export const Route = createFileRoute("/account/export")({
         const userId = session.data.userId;
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
-        const db = getDb();
+        const db = await getDb();
         const [user] = await db
           .select({
             id: users.id,
