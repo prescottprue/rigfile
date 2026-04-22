@@ -33,3 +33,5 @@ playwright/.cache
 .DS_Store
 .vscode/
 .idea/
+
+docs/superpowers
