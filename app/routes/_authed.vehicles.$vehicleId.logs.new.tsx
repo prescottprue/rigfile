@@ -1,22 +1,18 @@
 import {
   createFileRoute,
-  redirect,
+  useNavigate,
   useParams,
-  useRouter,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
-import { useAppSession } from "~/auth/session.server";
+import { requireAuth } from "~/auth/session.server";
 import { createLog } from "~/models/log.server";
 
 const createLogFn = createServerFn({ method: "POST" })
   .inputValidator((data: FormData) => data)
   .handler(async ({ data }) => {
-    const session = await useAppSession();
-    const userId = session.data.userId;
-    if (!userId)
-      throw redirect({ to: "/login", search: { redirectTo: undefined } });
+    const userId = await requireAuth();
 
     const vehicleId = String(data.get("vehicleId") ?? "");
     const title = String(data.get("title") ?? "").trim();
@@ -47,10 +43,7 @@ const createLogFn = createServerFn({ method: "POST" })
       selfService,
     });
 
-    throw redirect({
-      to: "/vehicles/$vehicleId/logs/$logId",
-      params: { vehicleId, logId: log.id },
-    });
+    return { vehicleId, logId: log.id };
   });
 
 export const Route = createFileRoute("/_authed/vehicles/$vehicleId/logs/new")({
@@ -58,7 +51,7 @@ export const Route = createFileRoute("/_authed/vehicles/$vehicleId/logs/new")({
 });
 
 function NewLog() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { vehicleId } = useParams({
     from: "/_authed/vehicles/$vehicleId/logs/new",
   });
@@ -73,11 +66,16 @@ function NewLog() {
     formData.set("vehicleId", vehicleId);
     try {
       const result = await createLogFn({ data: formData });
-      if (result && "error" in result) {
+      if (result && "error" in result && result.error) {
         setError(result.error);
-      } else {
-        await router.invalidate();
+      } else if (result && "logId" in result) {
+        navigate({
+          to: "/vehicles/$vehicleId/logs/$logId",
+          params: { vehicleId: result.vehicleId, logId: result.logId },
+        });
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setPending(false);
     }

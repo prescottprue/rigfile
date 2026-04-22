@@ -1,13 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
-import { useAppSession } from "~/auth/session.server";
+import { requireAuth } from "~/auth/session.server";
 import { getVehicleListItems } from "~/models/vehicle.server";
 
 const listVehiclesFn = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await useAppSession();
-  const userId = session.data.userId;
-  if (!userId) return [];
+  const userId = await requireAuth();
   return getVehicleListItems({ userId });
 });
 

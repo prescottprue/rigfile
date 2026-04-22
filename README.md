@@ -79,7 +79,7 @@ npm run db:seed
 npm run dev
 ```
 
-Open http://localhost:3000. Seed login: `rachel@remix.run` / `racheliscool`.
+Open http://localhost:3000. Seed login: `scott@example.com` / `scottiscool`.
 
 ### Useful commands
 
@@ -155,7 +155,7 @@ app/
   db/
     schema.ts           # Drizzle Postgres tables + tsvector + pgvector setup
     client.ts           # postgres-js client (works on Node + Workers)
-    seed.ts             # rachel@remix.run + 2007 WRX
+    seed.ts             # scott@example.com + 2007 WRX
     migrations/         # drizzle-kit generated SQL
   models/
     user.server.ts      # getUserById, verifyLogin, createUser, ...

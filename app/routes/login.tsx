@@ -15,6 +15,7 @@ function LoginPage() {
   const { redirectTo } = Route.useSearch();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -61,14 +62,23 @@ function LoginPage() {
         </label>
         <label className="mt-4 block text-sm font-medium text-slate-700">
           Password
-          <input
-            name="password"
-            type="password"
-            required
-            minLength={8}
-            autoComplete="current-password"
-            className="mt-1 w-full rounded border border-slate-300 p-2"
-          />
+          <div className="relative mt-1">
+            <input
+              name="password"
+              type={showPassword ? "text" : "password"}
+              required
+              minLength={8}
+              autoComplete="current-password"
+              className="w-full rounded border border-slate-300 p-2 pr-16"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-700"
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
         </label>
         <button
           type="submit"

@@ -1,10 +1,18 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
-// Authentication enforcement lives inside each server function. Unauthenticated
-// users see empty lists and get redirected to /login when they attempt a
-// mutation. A future pass can tighten this up with a beforeLoad session read,
-// once the TanStack Start + useSession integration is ironed out.
+import { getCurrentUserFn } from "~/auth/server-fns";
+
 export const Route = createFileRoute("/_authed")({
+  beforeLoad: async ({ location }) => {
+    const user = await getCurrentUserFn();
+    if (!user) {
+      throw redirect({
+        to: "/login",
+        search: { redirectTo: location.href },
+      });
+    }
+    return { user };
+  },
   component: AuthedLayout,
 });
 

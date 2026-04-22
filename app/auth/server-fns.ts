@@ -14,7 +14,7 @@ export type LoginInput = {
   redirectTo?: string;
 };
 
-export type LoginResult = { error: string } | { redirectTo: string };
+export type AuthResult = { error: string } | { redirectTo: string };
 
 function safeRedirect(to: string | undefined, fallback = "/vehicles") {
   if (!to || typeof to !== "string") return fallback;
@@ -24,7 +24,7 @@ function safeRedirect(to: string | undefined, fallback = "/vehicles") {
 
 export const loginFn = createServerFn({ method: "POST" })
   .inputValidator((data: LoginInput) => data)
-  .handler(async ({ data }): Promise<LoginResult> => {
+  .handler(async ({ data }): Promise<AuthResult> => {
     const user = await verifyLogin(data.email, data.password);
     if (!user) {
       return { error: "Invalid email or password" };
@@ -36,7 +36,7 @@ export const loginFn = createServerFn({ method: "POST" })
 
 export const signupFn = createServerFn({ method: "POST" })
   .inputValidator((data: LoginInput) => data)
-  .handler(async ({ data }): Promise<LoginResult> => {
+  .handler(async ({ data }): Promise<AuthResult> => {
     if (data.password.length < 8) {
       return { error: "Password must be at least 8 characters" };
     }

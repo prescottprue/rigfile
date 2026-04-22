@@ -1,9 +1,9 @@
 import { createId } from "@paralleldrive/cuid2";
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
-import { useAppSession } from "~/auth/session.server";
+import { requireAuth } from "~/auth/session.server";
 import { createVehicle } from "~/models/vehicle.server";
 import { getStorage } from "~/storage.server";
 
@@ -13,10 +13,7 @@ const ALLOWED_AVATAR_TYPES = new Set(["image/png", "image/jpeg"]);
 const createVehicleFn = createServerFn({ method: "POST" })
   .inputValidator((data: FormData) => data)
   .handler(async ({ data }) => {
-    const session = await useAppSession();
-    const userId = session.data.userId;
-    if (!userId)
-      throw redirect({ to: "/login", search: { redirectTo: undefined } });
+    const userId = await requireAuth();
 
     const name = String(data.get("name") ?? "").trim() || null;
     const make = String(data.get("make") ?? "").trim();
@@ -54,10 +51,7 @@ const createVehicleFn = createServerFn({ method: "POST" })
       avatarPath,
     });
 
-    throw redirect({
-      to: "/vehicles/$vehicleId",
-      params: { vehicleId: vehicle.id },
-    });
+    return { vehicleId: vehicle.id };
   });
 
 export const Route = createFileRoute("/_authed/vehicles/new")({
@@ -65,7 +59,7 @@ export const Route = createFileRoute("/_authed/vehicles/new")({
 });
 
 function NewVehiclePage() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -76,11 +70,16 @@ function NewVehiclePage() {
     const formData = new FormData(e.currentTarget);
     try {
       const result = await createVehicleFn({ data: formData });
-      if (result && "error" in result) {
+      if (result && "error" in result && result.error) {
         setError(result.error);
-      } else {
-        await router.invalidate();
+      } else if (result && "vehicleId" in result) {
+        navigate({
+          to: "/vehicles/$vehicleId",
+          params: { vehicleId: result.vehicleId },
+        });
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setPending(false);
     }

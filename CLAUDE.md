@@ -24,7 +24,7 @@ user-facing context and tool-choice rationale.
   generated column with a GIN index — use `searchLogs()` for FTS.
 - **Lint/format**: Biome 2 (`biome.json`). No ESLint/Prettier.
 - **Tests**: Vitest (integration, hits real local Postgres). Playwright
-  e2e is planned but not wired up yet.
+  e2e smoke tests in `e2e/` (registration, login, vehicle+log CRUD).
 - **Auth**: TanStack Start `useSession` in `app/auth/session.server.ts`,
   wrapped by `loginFn`, `signupFn`, `logoutFn`, `getCurrentUserFn` in
   `app/auth/server-fns.ts`. bcryptjs for hashing.
@@ -37,7 +37,7 @@ user-facing context and tool-choice rationale.
 ```sh
 npm run docker:dev      # start local Postgres (pgvector/pgvector:pg16 on :5440)
 npm run db:migrate      # apply Drizzle migrations
-npm run db:seed         # creates rachel@remix.run / racheliscool + seed vehicle
+npm run db:seed         # creates scott@example.com / scottiscool + seed vehicle
 npm run db:generate     # after schema changes
 npm run db:studio       # Drizzle Studio against local DB
 npm run dev             # Vite dev server on :3000
@@ -48,6 +48,7 @@ npm run lint            # biome check
 npm run lint:fix        # biome check --write
 npm test -- --run       # vitest single pass
 npm run validate        # typecheck + lint + test
+npm run test:e2e        # playwright smoke tests (needs dev server + DB)
 ```
 
 ## Conventions
@@ -57,10 +58,17 @@ npm run validate        # typecheck + lint + test
   `useSession`, or filesystem/R2 belongs in a `.server.ts` file.
 - **Data layer lives in `app/models/*.server.ts`**. Routes import from
   `~/models/...`, not from `~/db/client` directly.
-- **Every protected server function must check the session.** `/_authed`
-  layout does **not** currently enforce auth in `beforeLoad` (there's a
-  pending TanStack Start integration issue). Each server function reads
-  `session.data.userId` itself and returns empty / redirects on miss.
+- **Auth is two layers: route guard + server function check.**
+  `/_authed` layout enforces auth in `beforeLoad` via `getCurrentUserFn`
+  (redirects to `/login` if no session). Server functions additionally
+  call `requireAuth()` from `~/auth/session.server` for defense-in-depth.
+- **`throw redirect()` only works in `beforeLoad`/loaders.** When a
+  `createServerFn` handler throws `redirect()` and is called from a
+  client event handler, the redirect arrives as a 307 Response the
+  router never sees. Server functions called from forms must **return
+  data** and let the client navigate — use `window.location.assign()`
+  for auth (forces full reload to pick up session cookie) or
+  `useNavigate()` for mutations.
 - **Ownership checks in queries**: any model function that takes an `id`
   must scope by `userId` too. See `getVehicle({ id, userId })`.
 - **Path alias**: `~/*` → `./app/*`.
@@ -71,7 +79,7 @@ npm run validate        # typecheck + lint + test
 ## Safety rules (non-negotiable)
 
 - Do NOT skip auth — every server function that reads/writes user data
-  calls `session.data.userId` first.
+  calls `requireAuth()` first (returns `userId` or throws redirect).
 - Do NOT return another user's data — every query takes a `userId` and
   filters on it. Same for vehicleId → userId, logId → userId+vehicleId.
 - Do NOT import `~/db/client` from a route — go through `~/models/...`.
@@ -86,7 +94,7 @@ npm run validate        # typecheck + lint + test
 2. `app/db/client.ts` — postgres-js client, runtime-aware
 3. `app/db/migrations/` — generated SQL (do not edit by hand unless
    adding CREATE EXTENSION-style ops that Drizzle can't infer)
-4. `app/auth/session.server.ts` — session cookie config
+4. `app/auth/session.server.ts` — session cookie config + `requireAuth()`
 5. `app/auth/server-fns.ts` — login/signup/logout/currentUser server fns
 6. `app/storage.server.ts` — `Storage` interface + LocalFS + R2 drivers
 7. `app/models/*.server.ts` — the only place that imports from `~/db/client`
@@ -135,14 +143,6 @@ Remix/Prisma stack in places and are queued for a refresh pass.
 - `npm run build:node` (Nitro + TanStack Start node preset) produces
   `.output/server/index.mjs` but runtime 404s on all routes — SSR
   fallback wiring. Tracked for the self-host image release.
-- `useSession` can't be called from `beforeLoad` currently — the
-  `/_authed` guard is temporarily no-op; each server fn enforces auth
-  itself.
-- Auth server fns return `{ redirectTo }` rather than throwing
-  `redirect(...)` — the client (form handler or `logout.tsx`) navigates
-  with `window.location.assign`. Throwing from the handler caused the
-  client RPC to reject in dev; returning the URL also forces a full
-  reload so loaders pick up the new session cookie.
 
 ## Documentation policy
 

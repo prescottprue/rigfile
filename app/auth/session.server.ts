@@ -1,3 +1,4 @@
+import { redirect } from "@tanstack/react-router";
 import { useSession } from "@tanstack/react-start/server";
 
 export type SessionData = {
@@ -21,4 +22,12 @@ export function useAppSession() {
       path: "/",
     },
   });
+}
+
+export async function requireAuth(): Promise<string> {
+  const session = await useAppSession();
+  const userId = session.data.userId;
+  if (!userId)
+    throw redirect({ to: "/login", search: { redirectTo: undefined } });
+  return userId;
 }

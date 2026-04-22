@@ -2,12 +2,11 @@ import {
   createFileRoute,
   getRouteApi,
   Link,
-  redirect,
-  useRouter,
+  useNavigate,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
-import { useAppSession } from "~/auth/session.server";
+import { requireAuth } from "~/auth/session.server";
 import { deleteVehicle } from "~/models/vehicle.server";
 
 const parentApi = getRouteApi("/_authed/vehicles/$vehicleId");
@@ -15,12 +14,8 @@ const parentApi = getRouteApi("/_authed/vehicles/$vehicleId");
 const deleteVehicleFn = createServerFn({ method: "POST" })
   .inputValidator((vehicleId: string) => vehicleId)
   .handler(async ({ data }) => {
-    const session = await useAppSession();
-    const userId = session.data.userId;
-    if (!userId)
-      throw redirect({ to: "/login", search: { redirectTo: undefined } });
+    const userId = await requireAuth();
     await deleteVehicle({ id: data, userId });
-    throw redirect({ to: "/vehicles" });
   });
 
 export const Route = createFileRoute("/_authed/vehicles/$vehicleId/")({
@@ -28,13 +23,13 @@ export const Route = createFileRoute("/_authed/vehicles/$vehicleId/")({
 });
 
 function VehicleDetail() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const v = parentApi.useLoaderData();
 
   async function onDelete() {
     if (!window.confirm(`Delete ${v.year} ${v.make} ${v.model}?`)) return;
     await deleteVehicleFn({ data: v.id });
-    await router.invalidate();
+    navigate({ to: "/vehicles" });
   }
 
   return (

@@ -1,36 +1,27 @@
 import {
   createFileRoute,
   notFound,
-  redirect,
+  useNavigate,
   useParams,
-  useRouter,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
-import { useAppSession } from "~/auth/session.server";
+import { requireAuth } from "~/auth/session.server";
 import { deleteLog, getLog } from "~/models/log.server";
 
 const loadLogFn = createServerFn({ method: "GET" })
   .inputValidator((input: { vehicleId: string; logId: string }) => input)
   .handler(async ({ data }) => {
-    const session = await useAppSession();
-    const userId = session.data.userId;
-    if (!userId) return null;
+    const userId = await requireAuth();
     return getLog({ id: data.logId, userId, vehicleId: data.vehicleId });
   });
 
 const deleteLogFn = createServerFn({ method: "POST" })
   .inputValidator((input: { vehicleId: string; logId: string }) => input)
   .handler(async ({ data }) => {
-    const session = await useAppSession();
-    const userId = session.data.userId;
-    if (!userId)
-      throw redirect({ to: "/login", search: { redirectTo: undefined } });
+    const userId = await requireAuth();
     await deleteLog({ id: data.logId, userId, vehicleId: data.vehicleId });
-    throw redirect({
-      to: "/vehicles/$vehicleId/logs",
-      params: { vehicleId: data.vehicleId },
-    });
+    return { vehicleId: data.vehicleId };
   });
 
 export const Route = createFileRoute(
@@ -45,7 +36,7 @@ export const Route = createFileRoute(
 });
 
 function LogDetail() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const log = Route.useLoaderData();
   const { vehicleId, logId } = useParams({
     from: "/_authed/vehicles/$vehicleId/logs/$logId",
@@ -54,7 +45,10 @@ function LogDetail() {
   async function onDelete() {
     if (!window.confirm(`Delete "${log.title}"?`)) return;
     await deleteLogFn({ data: { vehicleId, logId } });
-    await router.invalidate();
+    navigate({
+      to: "/vehicles/$vehicleId/logs",
+      params: { vehicleId },
+    });
   }
 
   return (

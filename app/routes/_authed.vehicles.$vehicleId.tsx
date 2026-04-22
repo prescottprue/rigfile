@@ -1,15 +1,13 @@
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
-import { useAppSession } from "~/auth/session.server";
+import { requireAuth } from "~/auth/session.server";
 import { getVehicle } from "~/models/vehicle.server";
 
 const loadVehicleFn = createServerFn({ method: "GET" })
   .inputValidator((vehicleId: string) => vehicleId)
   .handler(async ({ data }) => {
-    const session = await useAppSession();
-    const userId = session.data.userId;
-    if (!userId) return null;
+    const userId = await requireAuth();
     return getVehicle({ id: data, userId });
   });
 

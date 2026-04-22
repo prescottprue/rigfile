@@ -11,8 +11,8 @@ async function main() {
   }
   const { db, close } = createDb(url);
 
-  const email = "rachel@remix.run";
-  const plain = "racheliscool";
+  const email = "scott@example.com";
+  const plain = "scottiscool";
 
   const existing = await db.select().from(users).where(eq(users.email, email));
   if (existing.length > 0) {
