@@ -2,24 +2,31 @@ name: Test Driver
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - "app/routes/**"
-      - "app/components/**"
-      - "app/root.tsx"
-      - "app/tailwind.css"
-      - "prisma/schema.prisma"
+    types: [labeled]
+  issue_comment:
+    types: [created]
 
 jobs:
   review:
-    # Skip PRs opened by bots to avoid recursion
-    if: github.event.pull_request.user.type != 'Bot'
+    # Run when the 'test-drive' label is added to a PR, or when someone
+    # comments '/test-drive' on a PR. Skip bot-opened PRs either way.
+    if: >-
+      (github.event_name == 'pull_request'
+        && github.event.label.name == 'test-drive'
+        && github.event.pull_request.user.type != 'Bot')
+      || (github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && contains(github.event.comment.body, '/test-drive')
+        && github.event.sender.type != 'Bot')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
       issues: write
       id-token: write
+
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
     steps:
       - name: Checkout repository
@@ -32,17 +39,17 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            You are the **Test Driver** on the Vehicle Work Log Pit Lane crew. Read `TEST_DRIVER.md` for your full protocol. Also read `AGENT.md` and `AGENTS.md` for project context.
+            You are the **Test Driver** on the Vehicle Work Log Pit Crew. Read `TEST_DRIVER.md` for your full protocol. Also read `AGENTS.md` for project context.
 
             ## Your task
 
-            Review pull request #${{ github.event.pull_request.number }} and post exactly one PR comment following the format in `TEST_DRIVER.md` §Comment Format.
+            Review pull request #${{ env.PR_NUMBER }} and post exactly one PR comment following the format in `TEST_DRIVER.md` §Comment Format.
 
             ### 1. Read the PR diff
 
             ```bash
-            gh pr diff ${{ github.event.pull_request.number }} -R ${{ github.repository }}
-            gh pr view ${{ github.event.pull_request.number }} -R ${{ github.repository }} --json title,body,files
+            gh pr diff ${{ env.PR_NUMBER }} -R ${{ github.repository }}
+            gh pr view ${{ env.PR_NUMBER }} -R ${{ github.repository }} --json title,body,files
             ```
 
             ### 2. Identify affected flows
@@ -59,14 +66,14 @@ jobs:
             - Affected flows list
             - Manual test plan (concrete, numbered, specific to this diff)
             - UX / a11y / mobile notes (only items the diff actually affects)
-            - Cypress coverage check (grep `cypress/e2e` for the affected route labels)
+            - Playwright coverage check (grep `e2e/` for the affected route labels)
 
             ### 4. Post the comment (or update the existing one)
 
             Your comment starts with the marker `<!-- test-driver -->`. Check if one already exists on this PR and, if so, update it in place. Otherwise post a new one.
 
             ```bash
-            EXISTING=$(gh pr view ${{ github.event.pull_request.number }} -R ${{ github.repository }} --json comments \
+            EXISTING=$(gh pr view ${{ env.PR_NUMBER }} -R ${{ github.repository }} --json comments \
               --jq '.comments[] | select(.body | startswith("<!-- test-driver -->")) | .id' | head -1)
 
             if [ -n "$EXISTING" ]; then
@@ -78,7 +85,7 @@ jobs:
             COMMENT
             )"
             else
-              gh pr comment ${{ github.event.pull_request.number }} -R ${{ github.repository }} --body "$(cat <<'COMMENT'
+              gh pr comment ${{ env.PR_NUMBER }} -R ${{ github.repository }} --body "$(cat <<'COMMENT'
             <!-- test-driver -->
             ## 🚗 Test Driver Report
             …

@@ -13,7 +13,8 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "REPLACE_WITH_HYPERDRIVE_ID",
+      // REPLACE WITH YOUR HYPERDRIVE ID FROM NEON
+      "id": "d0a95e6693424f2e9f3e9bb7f1af4b19",
       // In dev, wrangler/miniflare routes Hyperdrive requests to this URL so
       // the local Postgres from `npm run docker:dev` stands in for Neon.
       "localConnectionString": "postgresql://postgres:postgres@localhost:5440/vehicle_work_log"
@@ -23,8 +24,9 @@
   //   wrangler r2 bucket create vehicle-work-log-uploads
   "r2_buckets": [
     {
-      "binding": "UPLOADS",
-      "bucket_name": "vehicle-work-log-uploads"
+      // REPLACE WITH YOUR R2_BUCKET NAME FROM CLOUDFLARE
+      "bucket_name": "vehicle-work-log-prod-uploads",
+      "binding": "UPLOADS"
     }
   ]
   // SESSION_SECRET is a Wrangler secret. Set with:

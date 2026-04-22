@@ -120,9 +120,9 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
 - PR title = commit message; PR body = commit description. Write clear,
   descriptive PR titles — they become the permanent history.
 
-## Agent automation workflows
+## Pit Crew — agent automation workflows
 
-Preserved from the pre-rewrite repo; the docs haven't all been updated yet.
+See the README "Pit Lane" section for the full flow and issue labels.
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
@@ -131,7 +131,7 @@ Preserved from the pre-rewrite repo; the docs haven't all been updated yet.
 | `groom-issues.yml` | issues, `/groom` comments | Service Writer: evaluates + plans + labels |
 | `build-next.yml` | `/build` command or dispatch | Wrench: implements a groomed issue, opens PR |
 | `build-issue.yml` | `/build` comment | Routes to `build-next.yml` |
-| `test-driver.yml` | PRs touching routes/components/schema | Posts a UX/a11y test plan |
+| `test-driver.yml` | `test-drive` label or `/test-drive` comment | Posts a UX/a11y test plan |
 | `claude-review.yml` | `@claude` mention | Code review |
 
 Agent persona docs (`SERVICE_WRITER.md`, `CHIEF_MECHANIC.md`, etc.)
