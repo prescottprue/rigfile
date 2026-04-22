@@ -1,36 +1,34 @@
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "vehicle-work-log",
-	"compatibility_date": "2026-01-15",
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
-	"main": "@tanstack/react-start/server-entry",
-	"observability": {
-		"enabled": true
-	},
-	// Hyperdrive pools TCP Postgres connections from Workers. Create with:
-	//   wrangler hyperdrive create vehicle-work-log-db --connection-string="$NEON_URL"
-	// Then paste the returned id below.
-	"hyperdrive": [
-		{
-			"binding": "HYPERDRIVE",
-			// REPLACE WITH YOUR HYPERDRIVE ID FROM NEON
-			"id": "d0a95e6693424f2e9f3e9bb7f1af4b19",
-			// In dev, wrangler/miniflare routes Hyperdrive requests to this URL so
-			// the local Postgres from `npm run docker:dev` stands in for Neon.
-			"localConnectionString": "postgresql://postgres:postgres@localhost:5440/vehicle_work_log"
-		}
-	],
-	// R2 bucket holds avatar uploads. Create with:
-	//   wrangler r2 bucket create vehicle-work-log-uploads
-	"r2_buckets": [
-		{
-			// REPLACE WITH YOUR R2_BUCKET NAME FROM CLOUDFLARE
-			"bucket_name": "vehicle-work-log-prod-uploads",
-			"binding": "UPLOADS"
-		}
-	]
-	// SESSION_SECRET is a Wrangler secret. Set with:
-	//   wrangler secret put SESSION_SECRET
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vehicle-work-log",
+  "compatibility_date": "2026-01-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": {
+    "enabled": true
+  },
+  // Hyperdrive pools TCP Postgres connections from Workers. Create with:
+  //   wrangler hyperdrive create vehicle-work-log-db --connection-string="$NEON_URL"
+  // Then paste the returned id below.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      // REPLACE WITH YOUR HYPERDRIVE ID FROM NEON
+      "id": "d0a95e6693424f2e9f3e9bb7f1af4b19",
+      // In dev, wrangler/miniflare routes Hyperdrive requests to this URL so
+      // the local Postgres from `npm run docker:dev` stands in for Neon.
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5440/vehicle_work_log"
+    }
+  ],
+  // R2 bucket holds avatar uploads. Create with:
+  //   wrangler r2 bucket create vehicle-work-log-uploads
+  "r2_buckets": [
+    {
+      // REPLACE WITH YOUR R2_BUCKET NAME FROM CLOUDFLARE
+      "bucket_name": "vehicle-work-log-prod-uploads",
+      "binding": "UPLOADS"
+    }
+  ]
+  // SESSION_SECRET is a Wrangler secret. Set with:
+  //   wrangler secret put SESSION_SECRET
 }
