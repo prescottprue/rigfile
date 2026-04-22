@@ -2,5 +2,42 @@
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
     "pr-review-toolkit@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Edit(/**)",
+      "Bash(npx skills *)",
+      "Bash(npm *)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(* --version)",
+      "Bash(* --help *)",
+      "Bash(git *)",
+      "Bash(gh auth status)",
+      "Bash(gh repo view*)",
+      "Bash(gh pr*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Read(**/.env)",
+      "Edit(**/.env)",
+      "Bash(git reset*)",
+      "Bash(gh auth login)",
+      "Bash(gh auth logout)",
+      "Bash(gh repo create)",
+      "Bash(gh repo delete)",
+      "Bash(gh repo archive)",
+      "Bash(gh pr merge*)",
+      "Bash(gh release*)",
+      "Bash(gh secret*)",
+      "Bash(gh variable*)"
+    ],
+    "ask": ["Bash(yarn dlx *)", "Bash(rm -rf *)"]
   }
 }

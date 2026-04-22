@@ -1,114 +1,89 @@
-import type { User, Log, Vehicle, Mechanic, Part, Tag } from "@prisma/client";
+import { and, desc, eq, sql } from "drizzle-orm";
 
-import { prisma } from "~/db.server";
+import { getDb } from "~/db/client";
+import type { Log, NewLog } from "~/db/schema";
+import { logs } from "~/db/schema";
 
-export type { Log } from "@prisma/client";
+export type { Log };
 
-export function getLog({
+export async function getLog({
   id,
   userId,
   vehicleId,
-}: Pick<Log, "id"> & {
-  userId: User["id"];
-  vehicleId: Vehicle["id"];
-}) {
-  return prisma.log.findFirst({
-    where: { id, userId, vehicleId },
-  });
+}: Pick<Log, "id" | "userId" | "vehicleId">) {
+  const db = await getDb();
+  const [log] = await db
+    .select()
+    .from(logs)
+    .where(
+      and(
+        eq(logs.id, id),
+        eq(logs.userId, userId),
+        eq(logs.vehicleId, vehicleId),
+      ),
+    );
+  return log ?? null;
 }
 
-export function getLogListItems({
+export async function getLogListItems({
   userId,
   vehicleId,
+}: Pick<Log, "userId" | "vehicleId">) {
+  const db = await getDb();
+  return db
+    .select()
+    .from(logs)
+    .where(and(eq(logs.userId, userId), eq(logs.vehicleId, vehicleId)))
+    .orderBy(desc(logs.updatedAt));
+}
+
+export async function createLog(input: NewLog) {
+  const db = await getDb();
+  const [log] = await db.insert(logs).values(input).returning();
+  if (!log) throw new Error("Failed to create log");
+  return log;
+}
+
+export async function deleteLog({
+  id,
+  userId,
+  vehicleId,
+}: Pick<Log, "id" | "userId" | "vehicleId">) {
+  const db = await getDb();
+  return db
+    .delete(logs)
+    .where(
+      and(
+        eq(logs.id, id),
+        eq(logs.userId, userId),
+        eq(logs.vehicleId, vehicleId),
+      ),
+    );
+}
+
+/**
+ * Full-text search over a user's logs using the generated `search_tsv` column
+ * + GIN index. Returns logs ordered by updatedAt desc.
+ */
+export async function searchLogs({
+  userId,
+  query,
 }: {
-  userId: User["id"];
-  vehicleId: Vehicle["id"];
-}) {
-  return prisma.log.findMany({
-    where: { userId, vehicleId },
-    orderBy: { updatedAt: "desc" },
-  });
-}
+  userId: Log["userId"];
+  query: string;
+}): Promise<Log[]> {
+  const db = await getDb();
+  const trimmed = query.trim();
+  if (!trimmed) return [];
 
-export async function createLog({
-  title,
-  notes,
-  type,
-  cost,
-  odometer,
-  servicedAt,
-  selfService,
-  userId,
-  vehicleId,
-  mechanicId,
-  parts,
-  tags,
-}: Pick<
-  Log,
-  "title" | "notes" | "type" | "cost" | "odometer" | "servicedAt" | "selfService"
-> & {
-  userId: User["id"];
-  vehicleId: Vehicle["id"];
-  mechanicId?: Mechanic["id"];
-  tags?: Tag[],
-  parts?: Part[],
-}) {
-  const newTags = tags?.filter(tag => !tag.id)
-  const newParts = parts?.filter(part => !part.id)
-  const newLog = await prisma.log.create({
-    data: {
-      title,
-      notes,
-      type,
-      cost,
-      odometer,
-      servicedAt,
-      selfService,
-      user: {
-        connect: {
-          id: userId,
-        },
-      },
-      mechanic: mechanicId
-        ? {
-            connect: {
-              id: mechanicId,
-            },
-          }
-        : undefined,
-      vehicle: {
-        connect: {
-          id: vehicleId,
-        },
-      },
-      parts: newParts?.length ? { create: newParts } : undefined,
-      tags: newTags?.length ? { create: newTags } : undefined
-    },
-  });
-
-  // Update new log with tags/parts which already exist
-  const existingTags = tags?.filter(tag => tag.id)
-  const existingParts = parts?.filter(part => part.id)
-  if (existingTags?.length || existingParts?.length) {
-    await prisma.log.update({
-      where: {
-        id: newLog.id
-      },
-      data: {
-        tags: existingTags?.length ? { set: existingTags.map((tag) => ({ id: tag.id })) } : undefined,
-        parts: existingParts?.length ? { set: existingParts.map((tag) => ({ id: tag.id })) } : undefined,
-      }
-    })
-  }
-  return newLog
-}
-
-export function deleteLog({
-  id,
-  userId,
-  vehicleId,
-}: Pick<Log, "id"> & { userId: User["id"]; vehicleId: Vehicle["id"] }) {
-  return prisma.log.deleteMany({
-    where: { id, userId, vehicleId },
-  });
+  return db
+    .select()
+    .from(logs)
+    .where(
+      and(
+        eq(logs.userId, userId),
+        sql`${logs.searchTsv} @@ plainto_tsquery('english', ${trimmed})`,
+      ),
+    )
+    .orderBy(desc(logs.updatedAt));
 }
