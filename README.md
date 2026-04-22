@@ -14,7 +14,7 @@ image.
 
 | Concern              | Choice                                       |
 | -------------------- | -------------------------------------------- |
-| Framework            | [TanStack Start](https://tanstack.com/start) (Vite + Nitro, React 19) |
+| Framework            | [TanStack Start](https://tanstack.com/start) (Vite, React 19) — CF Workers via `@cloudflare/vite-plugin` for dev + prod; Nitro for the self-host Node build |
 | ORM                  | [Drizzle](https://orm.drizzle.team)           |
 | Database             | Postgres 16 everywhere                       |
 | Vectors / FTS ready  | `pgvector` + `pg_trgm` extensions on day one |

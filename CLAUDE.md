@@ -5,11 +5,19 @@ user-facing context and tool-choice rationale.
 
 ## Stack
 
-- **Framework**: TanStack Start (Vite + Nitro) — file-based routes in
-  `app/routes/`, server functions via `createServerFn`.
+- **Framework**: TanStack Start (Vite) — file-based routes in
+  `app/routes/`, server functions via `createServerFn`. Dev and the
+  production CF build both run through `@cloudflare/vite-plugin`
+  (reusing Vite's `ssr` env so the TanStack Start server-fn transformer
+  is applied). Nitro is only wired in for `npm run build:node`.
 - **Runtime targets**: Cloudflare Workers (primary) and Node self-host
   (Docker image). The runtime seam is kept small: `app/db/client.ts`,
   `app/storage.server.ts`. Everything else is isomorphic.
+- **DB connection**: `getDb()` is **async** — on Workers it dynamically
+  imports `cloudflare:workers` and uses `env.HYPERDRIVE.connectionString`,
+  returning a fresh client per request (Hyperdrive pools under the hood).
+  On Node it falls back to `DATABASE_URL` with a process-wide singleton.
+  All callers `await getDb()`.
 - **ORM**: Drizzle, Postgres dialect, postgres-js driver.
 - **DB**: Postgres 16 everywhere. Extensions enabled in the initial
   migration: `pg_trgm`, `vector` (pgvector). `logs.search_tsv` is a
@@ -35,7 +43,7 @@ npm run db:studio       # Drizzle Studio against local DB
 npm run dev             # Vite dev server on :3000
 npm run build           # Cloudflare Workers build → dist/
 npm run build:node      # Node/Nitro build → .output/ (WIP — see README)
-npm run typecheck
+npm run typecheck       # runs `tsr generate && tsc --noEmit`
 npm run lint            # biome check
 npm run lint:fix        # biome check --write
 npm test -- --run       # vitest single pass
@@ -86,9 +94,12 @@ npm run validate        # typecheck + lint + test
    route and `/account/export` JSON bundle endpoint
 9. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, secrets)
 10. `drizzle.config.ts` — Drizzle Kit config
-11. `biome.json` — lint/format rules
-12. `Dockerfile` + `docker/s6-rc.d/` — single-container self-host image
-13. `docker-compose.yml` — dev Postgres only (not for self-host)
+11. `tsr.config.json` — TanStack Router CLI config; drives
+    `app/routeTree.gen.ts` generation (the file is gitignored, so
+    `npm run typecheck` regenerates it via `tsr generate` first)
+12. `biome.json` — lint/format rules
+13. `Dockerfile` + `docker/s6-rc.d/` — single-container self-host image
+14. `docker-compose.yml` — dev Postgres only (not for self-host)
 
 ## Git conventions
 
@@ -127,9 +138,11 @@ Remix/Prisma stack in places and are queued for a refresh pass.
 - `useSession` can't be called from `beforeLoad` currently — the
   `/_authed` guard is temporarily no-op; each server fn enforces auth
   itself.
-- `app/routes/logout.tsx` relies on a client-side call to `logoutFn`;
-  flows that need immediate server-side redirect should call the fn
-  from a form submit instead.
+- Auth server fns return `{ redirectTo }` rather than throwing
+  `redirect(...)` — the client (form handler or `logout.tsx`) navigates
+  with `window.location.assign`. Throwing from the handler caused the
+  client RPC to reject in dev; returning the URL also forces a full
+  reload so loaders pick up the new session cookie.
 
 ## Documentation policy
 
