@@ -14,7 +14,6 @@ export default defineConfig({
   },
   plugins: [
     tsconfigPaths(),
-    tailwindcss(),
     tanstackStart({
       srcDirectory: "app",
       router: {
@@ -22,6 +21,7 @@ export default defineConfig({
       },
     }),
     viteReact(),
+    tailwindcss(),
     isCloudflare ? cloudflare({ viteEnvironment: { name: "ssr" } }) : nitro(),
   ],
   environments: {

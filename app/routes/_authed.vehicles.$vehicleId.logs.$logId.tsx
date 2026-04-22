@@ -38,7 +38,7 @@ export const Route = createFileRoute(
 )({
   component: LogDetail,
   loader: async ({ params }) => {
-    const log = await loadLogFn({ data: params });
+    const log = (await loadLogFn({ data: params })) ?? null;
     if (!log) throw notFound();
     return log;
   },

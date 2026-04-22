@@ -16,7 +16,7 @@ const loadVehicleFn = createServerFn({ method: "GET" })
 export const Route = createFileRoute("/_authed/vehicles/$vehicleId")({
   component: VehicleLayout,
   loader: async ({ params }) => {
-    const vehicle = await loadVehicleFn({ data: params.vehicleId });
+    const vehicle = (await loadVehicleFn({ data: params.vehicleId })) ?? null;
     if (!vehicle) throw notFound();
     return vehicle;
   },

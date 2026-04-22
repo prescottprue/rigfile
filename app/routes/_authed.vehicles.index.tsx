@@ -13,7 +13,7 @@ const listVehiclesFn = createServerFn({ method: "GET" }).handler(async () => {
 
 export const Route = createFileRoute("/_authed/vehicles/")({
   component: VehicleList,
-  loader: () => listVehiclesFn(),
+  loader: async () => (await listVehiclesFn()) ?? [],
 });
 
 function VehicleList() {

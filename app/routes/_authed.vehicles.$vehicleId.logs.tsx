@@ -15,7 +15,8 @@ const listLogsFn = createServerFn({ method: "GET" })
 
 export const Route = createFileRoute("/_authed/vehicles/$vehicleId/logs")({
   component: LogsLayout,
-  loader: ({ params }) => listLogsFn({ data: params.vehicleId }),
+  loader: async ({ params }) =>
+    (await listLogsFn({ data: params.vehicleId })) ?? [],
 });
 
 function LogsLayout() {
