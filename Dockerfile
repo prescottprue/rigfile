@@ -1,52 +1,60 @@
-# base node image
-FROM node:22-bullseye-slim as base
+# Self-host image: app + Postgres 16 + s6-overlay, one mounted /app/data volume.
+# Run with:
+#   docker run -d -p 3000:3000 -v vwl-data:/app/data \
+#     -e SESSION_SECRET=... ghcr.io/scottprue/vehicle-work-log:latest
 
-# set for base and all layer that inherit from it
-ENV NODE_ENV production
+ARG NODE_VERSION=24
+ARG S6_OVERLAY_VERSION=3.2.0.2
 
-# Install openssl for Prisma
-RUN apt-get update && apt-get install -y openssl
+# -------- Stage 1: build the app --------
+FROM node:${NODE_VERSION}-alpine AS build
 
-# Install all node_modules, including dev dependencies
-FROM base as deps
+WORKDIR /build
 
-WORKDIR /myapp
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-ADD package.json package-lock.json .npmrc ./
-RUN npm install --include=dev
-
-# Setup production node_modules
-FROM base as production-deps
-
-WORKDIR /myapp
-
-COPY --from=deps /myapp/node_modules /myapp/node_modules
-ADD package.json package-lock.json .npmrc ./
-RUN npm prune --omit=dev
-
-# Build the app
-FROM base as build
-
-WORKDIR /myapp
-
-COPY --from=deps /myapp/node_modules /myapp/node_modules
-
-ADD prisma .
-RUN npx prisma generate
-
-ADD . .
+COPY . .
 RUN npm run build
 
-# Finally, build the production image with minimal footprint
-FROM base
+# -------- Stage 2: runtime (Postgres + Node + app) --------
+FROM postgres:16-alpine AS runtime
 
-WORKDIR /myapp
+ARG NODE_VERSION
+ARG S6_OVERLAY_VERSION
+ENV NODE_ENV=production
+ENV PGDATA=/app/data/postgresql
+ENV UPLOADS_DIR=/app/data/uploads
+ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vehicle_work_log
 
-COPY --from=production-deps /myapp/node_modules /myapp/node_modules
-COPY --from=build /myapp/node_modules/.prisma /myapp/node_modules/.prisma
+# Install Node and fetch tools
+RUN apk add --no-cache \
+  nodejs=~${NODE_VERSION} \
+  npm \
+  curl \
+  xz \
+  bash \
+  tini
 
-COPY --from=build /myapp/build /myapp/build
-COPY --from=build /myapp/public /myapp/public
-ADD . .
+# s6-overlay (multi-service supervisor)
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp/
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
+  && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
+  && rm /tmp/s6-overlay-*.tar.xz
 
-CMD ["npm", "start"]
+# App files
+WORKDIR /app
+COPY --from=build /build/.output /app/.output
+COPY --from=build /build/app/db/migrations /app/migrations
+COPY --from=build /build/package.json /app/package.json
+
+# s6 service definitions
+COPY docker/s6-rc.d /etc/s6-overlay/s6-rc.d
+
+# Data volume: Postgres cluster + uploaded files live here
+VOLUME ["/app/data"]
+
+EXPOSE 3000
+
+ENTRYPOINT ["/init"]

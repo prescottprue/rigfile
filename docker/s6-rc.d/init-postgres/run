@@ -1,0 +1,13 @@
+#!/command/with-contenv sh
+set -eu
+
+mkdir -p "$PGDATA" "$UPLOADS_DIR"
+chown -R postgres:postgres /app/data
+
+if [ ! -s "$PGDATA/PG_VERSION" ]; then
+  echo "[init-postgres] initializing cluster at $PGDATA"
+  su-exec postgres initdb -D "$PGDATA" --auth-host=trust --auth-local=trust \
+    --username=postgres --pwfile=<(echo "postgres")
+  echo "host all all 0.0.0.0/0 md5" >> "$PGDATA/pg_hba.conf"
+  echo "listen_addresses = '127.0.0.1'" >> "$PGDATA/postgresql.conf"
+fi
