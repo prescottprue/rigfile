@@ -1,0 +1,97 @@
+name: Test Driver
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "app/routes/**"
+      - "app/components/**"
+      - "app/root.tsx"
+      - "app/tailwind.css"
+      - "prisma/schema.prisma"
+
+jobs:
+  review:
+    # Skip PRs opened by bots to avoid recursion
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Take the build for a spin
+        uses: anthropics/claude-code-action@4e5d8b13ca281a6d163cdb287d8917b216e00d6f # v1.0.103
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the **Test Driver** on the Vehicle Work Log Pit Lane crew. Read `TEST_DRIVER.md` for your full protocol. Also read `AGENT.md` and `AGENTS.md` for project context.
+
+            ## Your task
+
+            Review pull request #${{ github.event.pull_request.number }} and post exactly one PR comment following the format in `TEST_DRIVER.md` §Comment Format.
+
+            ### 1. Read the PR diff
+
+            ```bash
+            gh pr diff ${{ github.event.pull_request.number }} -R ${{ github.repository }}
+            gh pr view ${{ github.event.pull_request.number }} -R ${{ github.repository }} --json title,body,files
+            ```
+
+            ### 2. Identify affected flows
+
+            Use the route-to-flow table in `TEST_DRIVER.md`. For any changed component, find which routes import it:
+
+            ```bash
+            grep -rn "from \"~/components/<name>\"" app/routes
+            ```
+
+            ### 3. Build the report
+
+            Follow the checklist in `TEST_DRIVER.md` to produce:
+            - Affected flows list
+            - Manual test plan (concrete, numbered, specific to this diff)
+            - UX / a11y / mobile notes (only items the diff actually affects)
+            - Cypress coverage check (grep `cypress/e2e` for the affected route labels)
+
+            ### 4. Post the comment (or update the existing one)
+
+            Your comment starts with the marker `<!-- test-driver -->`. Check if one already exists on this PR and, if so, update it in place. Otherwise post a new one.
+
+            ```bash
+            EXISTING=$(gh pr view ${{ github.event.pull_request.number }} -R ${{ github.repository }} --json comments \
+              --jq '.comments[] | select(.body | startswith("<!-- test-driver -->")) | .id' | head -1)
+
+            if [ -n "$EXISTING" ]; then
+              gh api --method PATCH "/repos/${{ github.repository }}/issues/comments/$EXISTING" \
+                -f body="$(cat <<'COMMENT'
+            <!-- test-driver -->
+            ## 🚗 Test Driver Report
+            …
+            COMMENT
+            )"
+            else
+              gh pr comment ${{ github.event.pull_request.number }} -R ${{ github.repository }} --body "$(cat <<'COMMENT'
+            <!-- test-driver -->
+            ## 🚗 Test Driver Report
+            …
+            COMMENT
+            )"
+            fi
+            ```
+
+            ## Rules
+
+            - Post exactly ONE comment per PR — update in place on re-runs
+            - Do NOT run tests yourself (the CI pipeline handles that)
+            - Do NOT push code changes
+            - Do NOT review backend-only diffs — if the diff doesn't actually touch user-facing code, post a short comment saying "No user-facing changes detected — skipping Test Driver review" and exit
+            - Keep it concise. The goal is a useful checklist for the human reviewer, not a wall of text
+          claude_args: "--model claude-opus-4-6 --max-turns 30 --allowedTools Bash,Read,Glob,Grep"

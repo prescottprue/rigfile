@@ -4,6 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with
 code in this repository. Read `AGENT.md` for full project context. This file
 is a quick reference.
 
+## Pit Lane crew (garage name → classic role)
+
+| Pit Lane name | Classic role | Source |
+|---------------|--------------|--------|
+| **Service Writer** | Product Manager | `SERVICE_WRITER.md` |
+| **Chief Mechanic** | Software Architect | `CHIEF_MECHANIC.md` |
+| **Crew Chief** | DevOps / Platform | `CREW_CHIEF.md` |
+| **Wrench** | Builder / feature implementer | `.github/workflows/build-next.yml` |
+| **Test Driver** | QA / UX reviewer | `TEST_DRIVER.md` |
+
 ## Overview
 
 Remix (v2) app tracking work and maintenance on vehicles. Originally
@@ -137,11 +147,12 @@ handlers there rather than stubbing inside tests.
   `dev` (staging)
 - **CI** (`.github/workflows/ci.yml`): PR gate — lint + typecheck + vitest
   (fast signal separate from the full deploy pipeline)
-- **Groom Issues** (`.github/workflows/groom-issues.yml`): Auto-grooms new
-  issues, manual groom, **re-grooms on issue comments** when
-  `status:needs-clarification` is set, and **`/groom` command** triggers
-  full (re-)grooming on any issue
-  - Reads `PM_AGENT.md`, `AGENT.md`, and `CLAUDE.md` for technical context
+- **Groom Issues** — Service Writer (`.github/workflows/groom-issues.yml`):
+  Auto-grooms new issues, manual groom, **re-grooms on issue comments**
+  when `status:needs-clarification` is set, and **`/groom` command**
+  triggers full (re-)grooming on any issue
+  - Reads `SERVICE_WRITER.md`, `AGENT.md`, and `CLAUDE.md` for technical
+    context
   - Creates implementation plans as part of grooming
   - Design review step: if questions → `status:needs-clarification`; when
     answered via comment → auto-retriggers to complete grooming
@@ -149,11 +160,16 @@ handlers there rather than stubbing inside tests.
     grooming pass — removes stale status labels (`status:groomed`,
     `status:needs-clarification`, `status:needs-info`) before re-running
     the full protocol
-- **Build Next** (`.github/workflows/build-next.yml`): Manual/dispatch
-  trigger to pick and build the next groomed issue (or a specific issue
-  number)
-- **Build Issue** (`.github/workflows/build-issue.yml`): `/build` slash
-  command on any issue triggers the builder for that specific issue
+- **Build Next** — Wrench (`.github/workflows/build-next.yml`): Manual/
+  dispatch trigger to pick and build the next groomed issue (or a
+  specific issue number)
+- **Build Issue** — `/build` Wrench dispatch
+  (`.github/workflows/build-issue.yml`): Comment `/build` on any groomed
+  issue to trigger a Wrench build of that issue
+- **Test Driver** (`.github/workflows/test-driver.yml`): Runs on every PR
+  that touches `app/routes`, `app/components`, `app/root.tsx`,
+  `app/tailwind.css`, or `prisma/schema.prisma`. Posts one comment per
+  PR with affected flows, a manual test plan, and UX/a11y/mobile notes.
 - **Claude PR Review** (`.github/workflows/claude-review.yml`): Responds
   to `@claude` mentions in PR comments
 
@@ -163,8 +179,8 @@ handlers there rather than stubbing inside tests.
 |-------|---------|
 | `status:needs-info` | Issue incomplete — waiting on reporter for basic information |
 | `status:needs-clarification` | Design questions — grooming agent has technical/architectural questions; auto-retriggers grooming when human answers |
-| `status:groomed` | Fully specified with implementation plan — ready for builder agent |
-| `status:in-progress` | Claimed by a builder agent |
+| `status:groomed` | Fully specified with implementation plan — ready for a Wrench |
+| `status:in-progress` | Claimed by a Wrench |
 | `status:deferred` | Intentionally delayed |
 | `area:devops` | CI/CD, workflow, Docker, Fly — skipped by `build-next`, requires manual implementation |
 
@@ -267,8 +283,11 @@ When making code changes, always update the relevant documentation files:
 - `AGENT.md` — Architecture, interfaces, common tasks, development
   instructions
 - `AGENTS.md` / `CLAUDE.md` — Quick reference for AI editors
-- `PM_AGENT.md` — PM agent personality, grooming protocol, builder task
-  selection
-- `ARCHITECT_AGENT.md` — Architecture review methodology, proposals
-- `DEVOPS_AGENT.md` — DevOps review protocol, CI/CD audit checklist
+- `SERVICE_WRITER.md` — Service Writer (PM) — grooming protocol, Wrench
+  task-selection algorithm
+- `CHIEF_MECHANIC.md` — Chief Mechanic (Architect) — audit methodology,
+  proposals
+- `CREW_CHIEF.md` — Crew Chief (DevOps) — review protocol, CI/CD audit
+  checklist
+- `TEST_DRIVER.md` — Test Driver (QA / UX) — per-PR review protocol
 - `README.md` — User-facing docs, setup, configuration

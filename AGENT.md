@@ -3,6 +3,26 @@
 > This file provides context for AI code editors (Claude Code, Cursor, Windsurf, etc.)
 > about the Vehicle Work Log project. Read this first before making changes.
 
+## Pit Lane — the Claude agent crew
+
+Day-to-day maintenance on this project is automated by a set of Claude agents
+called **Pit Lane**. Each agent has a garage-shop name and a clear classical
+counterpart; use whichever is clearer in context:
+
+| Pit Lane name | Classic role | Lives in |
+|---------------|--------------|----------|
+| **Service Writer** | Product Manager | `SERVICE_WRITER.md` + `groom-issues.yml` |
+| **Chief Mechanic** | Software Architect | `CHIEF_MECHANIC.md` |
+| **Crew Chief** | DevOps / Platform | `CREW_CHIEF.md` |
+| **Wrench** | Builder (feature implementer) | `build-next.yml` / `build-issue.yml` |
+| **Test Driver** | QA / UX reviewer | `TEST_DRIVER.md` + `test-driver.yml` |
+
+The flow: the **Service Writer** grooms new issues into ready-to-build specs;
+a **Wrench** picks one up on `/build` and opens a PR; the **Test Driver**
+comments on the PR with a manual test plan and UX/a11y notes; the **Chief
+Mechanic** runs periodic audits that produce new issues; the **Crew Chief**
+does the same for infrastructure.
+
 ## What is Vehicle Work Log?
 
 A Remix (v2) web app for tracking work and maintenance performed on vehicles.
@@ -84,16 +104,18 @@ vehicle-work-log/
 ├── .github/workflows/
 │   ├── deploy.yml               # Lint + typecheck + vitest + cypress + Fly deploy on main/dev
 │   ├── ci.yml                   # PR CI (lint + typecheck + vitest)
-│   ├── groom-issues.yml         # PM agent: auto-groom new issues, /groom command, re-groom on clarification
-│   ├── build-next.yml           # Builder agent: implement groomed issues
+│   ├── groom-issues.yml         # Service Writer: auto-groom new issues, /groom command, re-groom on clarification
+│   ├── build-next.yml           # Wrench: implement groomed issues
 │   ├── build-issue.yml          # /build slash-command trigger
+│   ├── test-driver.yml          # Test Driver: per-PR UX/a11y review on route/component diffs
 │   └── claude-review.yml        # @claude PR review
 ├── AGENT.md                     # ← You are here
 ├── AGENTS.md                    # Quick reference for AI editors
 ├── CLAUDE.md                    # Claude Code quick reference
-├── PM_AGENT.md                  # PM agent personality
-├── ARCHITECT_AGENT.md           # Architecture agent
-├── DEVOPS_AGENT.md              # DevOps agent
+├── SERVICE_WRITER.md            # Service Writer (PM) persona
+├── CHIEF_MECHANIC.md            # Chief Mechanic (Architect) persona
+├── CREW_CHIEF.md                # Crew Chief (DevOps) persona
+├── TEST_DRIVER.md               # Test Driver (QA / UX reviewer) persona
 └── README.md                    # User-facing docs
 ```
 
@@ -317,8 +339,11 @@ When making code changes, update the relevant documentation files:
 
 - `AGENT.md` — Architecture, interfaces, common tasks, development
 - `AGENTS.md` / `CLAUDE.md` — Quick reference for AI editors
-- `PM_AGENT.md` — PM agent personality, grooming protocol, builder task
-  selection
-- `ARCHITECT_AGENT.md` — Architecture review methodology, proposals
-- `DEVOPS_AGENT.md` — DevOps review protocol, CI/CD audit checklist
+- `SERVICE_WRITER.md` — Service Writer (PM) persona, grooming protocol,
+  Wrench task-selection algorithm
+- `CHIEF_MECHANIC.md` — Chief Mechanic (Architect) audit methodology,
+  proposals
+- `CREW_CHIEF.md` — Crew Chief (DevOps) review protocol, CI/CD audit
+  checklist
+- `TEST_DRIVER.md` — Test Driver (QA / UX reviewer) per-PR protocol
 - `README.md` — User-facing docs, setup, configuration
