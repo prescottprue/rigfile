@@ -2,14 +2,14 @@ services:
   # Local Postgres for development only.
   # Self-hosters should use the bundled image built by ./Dockerfile instead.
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: vehicle_work_log
     ports:
-      - "5432:5432"
+      - "5440:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
