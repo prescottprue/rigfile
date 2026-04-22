@@ -77,6 +77,21 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "**/*.server.ts",
+        "**/*.server.tsx",
+        "**/auth/server-fns.ts",
+        "**/app/routes/**"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off"
+          }
+        }
+      }
     }
   ]
 }
