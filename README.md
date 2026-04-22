@@ -126,16 +126,31 @@ See `docs/SELF_HOSTING.md` for upgrades, backups, and exporting your data.
 Prereqs: a Cloudflare account, a Neon Postgres database, an R2 bucket, and
 a Hyperdrive binding pointing at the Neon connection string.
 
+Set up a Neon Postgres database if you don't have one yet — create an
+account at [neon.tech](https://neon.tech) (the free tier works fine), then
+initialize a project with the CLI:
+
+```sh
+npx neonctl@latest init
+```
+
+This will auth you and create a project. Copy the connection string — that's
+your `$NEON_URL` for the steps below.
+
+Next, enable R2 in the Cloudflare dashboard if you haven't already:
+**Storage & Databases → R2 Object Storage → Overview** (the free tier is
+more than enough for this app).
+
 ```sh
 # Create R2 bucket
-wrangler r2 bucket create vehicle-work-log-uploads
+npx wrangler r2 bucket create vehicle-work-log-uploads
 
 # Create Hyperdrive over Neon
-wrangler hyperdrive create vehicle-work-log-db --connection-string="$NEON_URL"
+npx wrangler hyperdrive create vehicle-work-log-db --connection-string="$NEON_URL"
 # paste the returned id into wrangler.jsonc under hyperdrive[0].id
 
 # Set SESSION_SECRET for the Worker
-wrangler secret put SESSION_SECRET
+npx wrangler secret put SESSION_SECRET
 
 # Apply migrations to Neon (one-off; CI does this automatically)
 DATABASE_URL=$NEON_URL npm run db:migrate
@@ -147,6 +162,94 @@ npm run deploy:cf
 CI (`.github/workflows/deploy.yml`) does steps 3–5 automatically on push
 to `main` (production) and `dev` (staging). Required secrets:
 `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_DATABASE_URL`.
+
+Create the `CLOUDFLARE_API_TOKEN` at
+**My Profile → API Tokens → Create Token** with these permissions:
+
+- **Account / Workers Scripts** — Edit
+- **Account / Workers R2 Storage** — Edit
+- **Account / Hyperdrive** — Edit
+
+Scope it to the account you're deploying to.
+
+## Pit Lane — maintenance & feature development (Claude agents)
+
+Day-to-day maintenance and feature work on this project is run by the **Pit
+Crew**, a team of Claude Code agents that live as GitHub Actions. They turn
+GitHub Issues into a roadmap and groomed issues into PRs. The personas are
+named after shop/garage roles — if you're used to standard PM / Architect /
+Builder terminology, the mapping is spelled out below.
+
+### The Pit Crew
+
+| Pit Crew name | Classic role | What it does | Lives in |
+|---------------|--------------|--------------|----------|
+| **Service Writer** | Product Manager | Triages new issues, sets priority/complexity/milestone, writes up the full spec, gatekeeps scope & security | `SERVICE_WRITER.md` + `.github/workflows/groom-issues.yml` |
+| **Chief Mechanic** | Software Architect | Periodic architecture review (auth/ownership audit, N+1 scan, schema hygiene, route-boundary error handling) — files issues for what it finds | `CHIEF_MECHANIC.md` |
+| **Crew Chief** | DevOps / Platform Engineer | Periodic CI/CD & infra review (workflows, Dockerfile, Cloudflare deploy, secrets) — files `area:devops` issues | `CREW_CHIEF.md` |
+| **Wrench** | Builder / feature implementer | Picks a groomed issue, branches, implements against acceptance criteria, runs tests, opens a PR with `Closes #N` | `.github/workflows/build-next.yml` + `.github/workflows/build-issue.yml` |
+| **Test Driver** | QA / UX reviewer | On-demand UX/a11y review — triggered by the `test-drive` label or a `/test-drive` comment on a PR; posts affected flows, a manual test plan, and mobile notes | `TEST_DRIVER.md` + `.github/workflows/test-driver.yml` |
+
+See `AGENTS.md` for the full project context each agent reads.
+
+### Flow
+
+1. **Open an issue** using the bug or feature template. The **Service
+   Writer** auto-grooms it: scope check → security check → priority
+   (`priority:P0`–`P3`) → complexity (`complexity:S`–`XL`) → phase
+   milestone, and then either
+   - asks clarifying questions (`status:needs-clarification`) — reply on
+     the issue and grooming re-triggers automatically, or
+   - writes the full spec (Problem, Solution, Implementation Plan,
+     Acceptance Criteria, Key Files, Constraints, Dependencies) and marks
+     the issue `status:groomed`.
+2. **Kick off a build** in one of three ways:
+   - Comment `/build` on any groomed issue → a **Wrench** claims it
+     (`status:in-progress`), branches, implements against the acceptance
+     criteria, runs `npm run validate`, and opens a PR with
+     `Closes #<number>`.
+   - Manually run the **Build Next** workflow with no input to auto-pick
+     the highest-priority groomed issue.
+   - Manually run **Build Next** with a specific issue number.
+3. **Test Driver** posts a review comment on the PR when triggered — add
+   the `test-drive` label or comment `/test-drive`. The comment lists
+   the affected user flows, a concrete manual test plan, and
+   UX/a11y/mobile notes.
+4. **Review the PR.** Comment `@claude` anywhere on the PR to have the
+   review agent (`claude-review.yml`) respond or make changes.
+5. **Merge.** Squash-merge with a [conventional commit](https://www.conventionalcommits.org/)
+   title (`feat:`, `fix:`, `chore:`, etc.). The issue auto-closes via
+   `Closes #<number>` and `deploy.yml` ships the change to Cloudflare.
+
+### Re-groom or reset an issue
+
+Comment `/groom` on any issue to strip existing status labels and re-run
+the full grooming protocol from scratch — useful after significant
+discussion or when requirements change.
+
+### Issue labels
+
+| Label | Meaning |
+|-------|---------|
+| `status:needs-info` | Incomplete — waiting on reporter for basic information |
+| `status:needs-clarification` | Design questions — Service Writer has technical/architectural questions; auto-retriggers grooming when answered |
+| `status:groomed` | Fully specified — ready for a Wrench |
+| `status:in-progress` | Claimed by a Wrench |
+| `status:deferred` | Intentionally delayed |
+| `area:devops` | CI/CD, Docker, Cloudflare, or workflow changes — skipped by `build-next` (GitHub Actions can't modify its own workflow files); the Crew Chief files these, humans or desktop Claude Code implement them |
+| `priority:P0`–`P3` / `complexity:S`–`XL` | Set by the Service Writer during grooming |
+
+### Required secret
+
+Add `CLAUDE_CODE_OAUTH_TOKEN` to the repo's GitHub Actions secrets.
+Without it the agent workflows will fail to authenticate.
+
+### Running agents locally
+
+The same prompts live under `.claude/commands/`. In a Claude Code session
+you can run `/groom-issues` (Service Writer) or `/build-next` (Wrench,
+with optional `devops` arg) locally — handy for `area:devops` work that
+the automated Wrench can't do.
 
 ## Architecture
 
