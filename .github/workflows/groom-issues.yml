@@ -1,0 +1,334 @@
+name: Groom Issues
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to groom (leave blank to groom all ungroomed issues)"
+        required: false
+        type: string
+
+jobs:
+  groom:
+    if: github.event_name != 'issue_comment'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Groom single issue (on new issue)
+        if: github.event_name == 'issues'
+        uses: anthropics/claude-code-action@4e5d8b13ca281a6d163cdb287d8917b216e00d6f # v1.0.103
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: "true"
+          prompt: |
+            You are the Vehicle Work Log Service Writer. A new issue was just created: #${{ github.event.issue.number }}
+
+            Read `SERVICE_WRITER.md` for your full personality, decision framework, gatekeeping rules, security review process, and grooming protocol.
+            Also read `AGENT.md`, `AGENTS.md`, and `CLAUDE.md` for code conventions, architecture, safety rules, and key files. You will use this technical context to create an implementation plan and identify design questions.
+
+            Then groom this single issue by following the Issue Grooming Protocol:
+
+            1. Read the issue fully: `gh issue view ${{ github.event.issue.number }} -R ${{ github.repository }}`
+            2. Scope check — Is this in Vehicle Work Log's scope? If not, reject with a comment and close.
+            3. Security check — Is anything suspicious or unsafe? If so, flag with `security` label and escalate.
+            4. Duplicate check — Search for similar open issues.
+            5. Completeness check — Is there enough detail? If not, ask clarifying questions and add `status:needs-info`.
+            6. Classify — Bug or feature? Assign priority (P0-P3), complexity (S-XL), and milestone (Phase 1-4).
+            7. Design review — Based on your reading of AGENT.md and CLAUDE.md, evaluate:
+               - Are there design decisions that need human input? (e.g., which pattern to follow, trade-offs between approaches, architectural questions)
+               - Are there ambiguities in the requirements that could lead to rework?
+               - If YES to either:
+                 a. Ensure the `status:needs-clarification` label exists: `gh label create "status:needs-clarification" -R ${{ github.repository }} --color "E99695" --description "Awaiting answers to design/architecture questions" --force`
+                 b. Add the `status:needs-clarification` label to the issue
+                 c. Comment listing the specific design/architecture questions
+                 d. STOP here — do NOT mark as groomed yet
+               - If NO questions: Continue to step 8.
+            8. Build out the spec — Edit the issue body into a complete user story with:
+               - `## 🔍 Problem` — Restate the problem clearly
+               - `## 💡 Solution` — Propose a technical approach
+               - `## 🛠️ Implementation Plan` — Based on AGENT.md and CLAUDE.md:
+                 - **Approach**: Which patterns to follow, design decisions made, referencing existing code
+                 - **Key Files to Modify**: Specific file paths with what changes and why
+                 - **Testing Strategy**: What vitest and/or cypress tests to add/modify
+               - `## ✅ Acceptance Criteria` — Specific, testable checkboxes
+               - `## 📁 Key Files` — Which source files are likely involved
+               - `## ⚠️ Constraints` — Safety rules, compatibility
+               - `## 🔗 Dependencies` — Other issues that must be done first
+            9. Mark as groomed — Add `status:groomed` label and leave a summary comment. At the end of the comment, include:
+               > **Ready to build?** Comment `/build` on this issue to trigger the Wrench.
+
+            Important rules:
+            - Bugs always outrank features at the same priority tier
+            - Say NO to out-of-scope requests — be respectful but firm
+            - Be defensive about security — flag anything questionable
+            - Ask clarifying questions when the issue is incomplete
+            - Reference specific files from the codebase in your implementation plan
+            - Flag any safety constraints from CLAUDE.md that apply (auth, ownership checks, models-only data access, Fly replay)
+            - If the implementation requires changes to `.github/workflows/`, `Dockerfile`, `docker-compose.yml`, `fly.toml`, or deployment/infrastructure scripts, add the `area:devops` label (create it first: `gh label create "area:devops" -R ${{ github.repository }} --color "0E8A16" --description "CI/CD, deployment, Docker, Fly, workflow changes — manual implementation only" --force`). These issues cannot be built by the automated `build-next` workflow.
+            - Do NOT start building anything — your job is grooming only
+          claude_args: "--model claude-opus-4-6 --max-turns 20 --allowedTools Bash,Read,Glob,Grep"
+
+      - name: Groom specific issue (manual trigger)
+        if: github.event_name == 'workflow_dispatch' && inputs.issue_number != ''
+        uses: anthropics/claude-code-action@4e5d8b13ca281a6d163cdb287d8917b216e00d6f # v1.0.103
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Vehicle Work Log Service Writer. You've been asked to groom issue #${{ inputs.issue_number }}.
+
+            Read `SERVICE_WRITER.md` for your full personality, decision framework, gatekeeping rules, security review process, and grooming protocol.
+            Also read `AGENT.md`, `AGENTS.md`, and `CLAUDE.md` for code conventions, architecture, safety rules, and key files.
+
+            Then groom this single issue by following the Issue Grooming Protocol:
+
+            1. Read the issue fully: `gh issue view ${{ inputs.issue_number }} -R ${{ github.repository }}`
+            2. Scope check — Is this in Vehicle Work Log's scope? If not, reject with a comment and close.
+            3. Security check — Is anything suspicious or unsafe? If so, flag with `security` label and escalate.
+            4. Duplicate check — Search for similar open issues.
+            5. Completeness check — Is there enough detail? If not, ask clarifying questions and add `status:needs-info`.
+            6. Classify — Bug or feature? Assign priority (P0-P3), complexity (S-XL), and milestone (Phase 1-4).
+            7. Design review — Based on your reading of AGENT.md and CLAUDE.md, evaluate:
+               - Are there design decisions that need human input? (e.g., which pattern to follow, trade-offs between approaches, architectural questions)
+               - Are there ambiguities in the requirements that could lead to rework?
+               - If YES to either:
+                 a. Ensure the `status:needs-clarification` label exists: `gh label create "status:needs-clarification" -R ${{ github.repository }} --color "E99695" --description "Awaiting answers to design/architecture questions" --force`
+                 b. Add the `status:needs-clarification` label to the issue
+                 c. Comment listing the specific design/architecture questions
+                 d. STOP here — do NOT mark as groomed yet
+               - If NO questions: Continue to step 8.
+            8. Build out the spec — Edit the issue body into a complete user story with:
+               - `## 🔍 Problem` — Restate the problem clearly
+               - `## 💡 Solution` — Propose a technical approach
+               - `## 🛠️ Implementation Plan` — Based on AGENT.md and CLAUDE.md:
+                 - **Approach**: Which patterns to follow, design decisions made, referencing existing code
+                 - **Key Files to Modify**: Specific file paths with what changes and why
+                 - **Testing Strategy**: What vitest and/or cypress tests to add/modify
+               - `## ✅ Acceptance Criteria` — Specific, testable checkboxes
+               - `## 📁 Key Files` — Which source files are likely involved
+               - `## ⚠️ Constraints` — Safety rules, compatibility
+               - `## 🔗 Dependencies` — Other issues that must be done first
+            9. Mark as groomed — Add `status:groomed` label and leave a summary comment. At the end of the comment, include:
+               > **Ready to build?** Comment `/build` on this issue to trigger the Wrench.
+
+            Important rules:
+            - Bugs always outrank features at the same priority tier
+            - Say NO to out-of-scope requests — be respectful but firm
+            - Be defensive about security — flag anything questionable
+            - Ask clarifying questions when the issue is incomplete
+            - Reference specific files from the codebase in your implementation plan
+            - Flag any safety constraints from CLAUDE.md that apply (auth, ownership checks, models-only data access, Fly replay)
+            - If the implementation requires changes to `.github/workflows/`, `Dockerfile`, `docker-compose.yml`, `fly.toml`, or deployment/infrastructure scripts, add the `area:devops` label (create it first: `gh label create "area:devops" -R ${{ github.repository }} --color "0E8A16" --description "CI/CD, deployment, Docker, Fly, workflow changes — manual implementation only" --force`). These issues cannot be built by the automated `build-next` workflow.
+            - Do NOT start building anything — your job is grooming only
+          claude_args: "--model claude-opus-4-6 --max-turns 20 --allowedTools Bash,Read,Glob,Grep"
+
+      - name: Groom all ungroomed issues (manual trigger)
+        if: github.event_name == 'workflow_dispatch' && inputs.issue_number == ''
+        uses: anthropics/claude-code-action@4e5d8b13ca281a6d163cdb287d8917b216e00d6f # v1.0.103
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Vehicle Work Log Service Writer. You've been triggered to groom all ungroomed issues.
+
+            Read `SERVICE_WRITER.md` for your full personality, decision framework, gatekeeping rules, security review process, and grooming protocol.
+            Also read `AGENT.md`, `AGENTS.md`, and `CLAUDE.md` for code conventions, architecture, safety rules, and key files.
+
+            Then follow the full grooming workflow from `.claude/commands/groom-issues.md`:
+
+            1. Fetch all open issues that are NOT yet groomed (no `status:groomed` label) and not in progress, deferred, or needs-clarification.
+            2. For each ungroomed issue, apply the full grooming protocol:
+               - Scope check, security check, duplicate check, completeness check
+               - Classify (priority, complexity, milestone)
+               - Design review — identify design/architecture questions from AGENT.md and CLAUDE.md context:
+                 - If questions exist: add `status:needs-clarification` label (create it first with `gh label create "status:needs-clarification" -R ${{ github.repository }} --color "E99695" --description "Awaiting answers to design/architecture questions" --force`), comment with questions, skip to next issue
+                 - If no questions: build full spec with Implementation Plan section, mark as groomed
+               - Build spec with Problem, Solution, Implementation Plan (approach, key files, testing strategy), Acceptance Criteria, Key Files, Constraints, Dependencies
+               - Mark as groomed and leave a summary comment. At the end of the comment, include:
+                 > **Ready to build?** Comment `/build` on this issue to trigger the Wrench.
+            3. After all issues are processed, revisit already-groomed issues for priority changes.
+            4. Output a summary of all actions taken.
+
+            Important rules:
+            - Bugs always outrank features at the same priority tier
+            - Say NO to out-of-scope requests — be respectful but firm
+            - Be defensive about security — flag anything questionable
+            - Ask clarifying questions when the issue is incomplete
+            - Reference specific files from the codebase in your implementation plan
+            - Flag any safety constraints from CLAUDE.md that apply (auth, ownership checks, models-only data access, Fly replay)
+            - If the implementation requires changes to `.github/workflows/`, `Dockerfile`, `docker-compose.yml`, `fly.toml`, or deployment/infrastructure scripts, add the `area:devops` label (create it first: `gh label create "area:devops" -R ${{ github.repository }} --color "0E8A16" --description "CI/CD, deployment, Docker, Fly, workflow changes — manual implementation only" --force`). These issues cannot be built by the automated `build-next` workflow.
+            - Do NOT start building anything — your job is grooming only
+          claude_args: "--model claude-opus-4-6 --max-turns 25 --allowedTools Bash,Read,Glob,Grep"
+
+  re-groom:
+    # Only run on issue comments (not PR comments), only on needs-clarification issues, not from bots
+    if: >
+      github.event_name == 'issue_comment' &&
+      !github.event.issue.pull_request &&
+      contains(toJSON(github.event.issue.labels), 'status:needs-clarification') &&
+      github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Re-groom issue after clarification
+        uses: anthropics/claude-code-action@4e5d8b13ca281a6d163cdb287d8917b216e00d6f # v1.0.103
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Vehicle Work Log Service Writer. A human has responded to your clarification questions on issue #${{ github.event.issue.number }}.
+
+            Read `SERVICE_WRITER.md` for your full grooming protocol. Read `AGENT.md`, `AGENTS.md`, and `CLAUDE.md` for code conventions, architecture, safety rules, and key files.
+
+            ## Your task
+
+            1. Read the full issue and ALL comments:
+               ```bash
+               gh issue view ${{ github.event.issue.number }} -R ${{ github.repository }} --comments
+               ```
+
+            2. Review the conversation thread. You previously asked clarification questions and the issue is labeled `status:needs-clarification`. Check:
+               - Have the design/requirements questions been adequately answered?
+               - Are there any NEW ambiguities based on the answers?
+
+            3. If questions are ANSWERED:
+               a. Complete the grooming process — edit the issue body into a full spec with:
+                  - `## 🔍 Problem` — Restate clearly
+                  - `## 💡 Solution` — Technical approach informed by the answers
+                  - `## 🛠️ Implementation Plan` — Based on AGENT.md and CLAUDE.md:
+                    - **Approach**: Which patterns to follow, design decisions made, referencing existing code
+                    - **Key Files to Modify**: Specific file paths with what changes and why
+                    - **Testing Strategy**: What vitest and/or cypress tests to add/modify
+                  - `## ✅ Acceptance Criteria` — Specific, testable checkboxes
+                  - `## 📁 Key Files` — Source files involved
+                  - `## ⚠️ Constraints` — Safety rules, compatibility
+                  - `## 🔗 Dependencies` — Other issues or "None"
+               b. Classify — Assign priority (P0-P3), complexity (S-XL), and milestone if not already set
+               c. Remove the `status:needs-clarification` label:
+                  ```bash
+                  gh issue edit ${{ github.event.issue.number }} -R ${{ github.repository }} --remove-label "status:needs-clarification"
+                  ```
+               d. Add the `status:groomed` label:
+                  ```bash
+                  gh issue edit ${{ github.event.issue.number }} -R ${{ github.repository }} --add-label "status:groomed"
+                  ```
+               e. Comment summarizing that grooming is complete and the issue is ready for development. At the end of the comment, include:
+                  > **Ready to build?** Comment `/build` on this issue to trigger the Wrench.
+
+            4. If questions are NOT fully answered or NEW questions arise:
+               a. Comment with the remaining/new questions, clearly labeled
+               b. Keep the `status:needs-clarification` label
+               c. Do NOT mark as groomed
+
+            Important rules:
+            - Only analyze comments from HUMANS — ignore bot/action comments when checking for answers
+            - Reference specific files from the codebase in your implementation plan
+            - Flag any safety constraints from CLAUDE.md that apply to this issue
+            - If the implementation requires changes to `.github/workflows/`, `Dockerfile`, `docker-compose.yml`, `fly.toml`, or deployment/infrastructure scripts, add the `area:devops` label (create it first: `gh label create "area:devops" -R ${{ github.repository }} --color "0E8A16" --description "CI/CD, deployment, Docker, Fly, workflow changes — manual implementation only" --force`). These issues cannot be built by the automated `build-next` workflow.
+            - Do NOT start building anything — your job is grooming only
+          claude_args: "--model claude-opus-4-6 --max-turns 20 --allowedTools Bash,Read,Glob,Grep"
+
+  groom-on-command:
+    # Trigger on /groom comment in issues (not PRs), not from bots
+    if: >
+      github.event_name == 'issue_comment' &&
+      !github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/groom') &&
+      github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Groom issue on /groom command
+        uses: anthropics/claude-code-action@4e5d8b13ca281a6d163cdb287d8917b216e00d6f # v1.0.103
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Vehicle Work Log Service Writer. A `/groom` command was issued on issue #${{ github.event.issue.number }}.
+
+            Read `SERVICE_WRITER.md` for your full personality, decision framework, gatekeeping rules, security review process, and grooming protocol.
+            Also read `AGENT.md`, `AGENTS.md`, and `CLAUDE.md` for code conventions, architecture, safety rules, and key files.
+
+            ## Your task
+
+            This is a (re-)grooming request. The issue may have been previously groomed, or it may be new. Either way, start fresh.
+
+            ### Step 0: Remove stale status labels
+
+            Before grooming, remove any existing status labels so the issue gets a clean re-evaluation:
+            ```bash
+            gh issue edit ${{ github.event.issue.number }} -R ${{ github.repository }} --remove-label "status:groomed" 2>/dev/null || true
+            gh issue edit ${{ github.event.issue.number }} -R ${{ github.repository }} --remove-label "status:needs-clarification" 2>/dev/null || true
+            gh issue edit ${{ github.event.issue.number }} -R ${{ github.repository }} --remove-label "status:needs-info" 2>/dev/null || true
+            ```
+
+            ### Step 1: Read the issue
+
+            Read the full issue and ALL comments:
+            ```bash
+            gh issue view ${{ github.event.issue.number }} -R ${{ github.repository }} --comments
+            ```
+
+            ### Step 2: Full grooming protocol
+
+            Follow the Issue Grooming Protocol from scratch:
+
+            1. Scope check — Is this in Vehicle Work Log's scope? If not, reject with a comment and close.
+            2. Security check — Is anything suspicious or unsafe? If so, flag with `security` label and escalate.
+            3. Duplicate check — Search for similar open issues.
+            4. Completeness check — Is there enough detail? If not, ask clarifying questions and add `status:needs-info`.
+            5. Classify — Bug or feature? Assign priority (P0-P3), complexity (S-XL), and milestone (Phase 1-4).
+            6. Design review — Based on your reading of AGENT.md and CLAUDE.md, evaluate:
+               - Are there design decisions that need human input? (e.g., which pattern to follow, trade-offs between approaches, architectural questions)
+               - Are there ambiguities in the requirements that could lead to rework?
+               - If YES to either:
+                 a. Ensure the `status:needs-clarification` label exists: `gh label create "status:needs-clarification" -R ${{ github.repository }} --color "E99695" --description "Awaiting answers to design/architecture questions" --force`
+                 b. Add the `status:needs-clarification` label to the issue
+                 c. Comment listing the specific design/architecture questions
+                 d. STOP here — do NOT mark as groomed yet
+               - If NO questions: Continue to step 7.
+            7. Build out the spec — Edit the issue body into a complete user story with:
+               - `## 🔍 Problem` — Restate the problem clearly
+               - `## 💡 Solution` — Propose a technical approach
+               - `## 🛠️ Implementation Plan` — Based on AGENT.md and CLAUDE.md:
+                 - **Approach**: Which patterns to follow, design decisions made, referencing existing code
+                 - **Key Files to Modify**: Specific file paths with what changes and why
+                 - **Testing Strategy**: What vitest and/or cypress tests to add/modify
+               - `## ✅ Acceptance Criteria` — Specific, testable checkboxes
+               - `## 📁 Key Files` — Which source files are likely involved
+               - `## ⚠️ Constraints` — Safety rules, compatibility
+               - `## 🔗 Dependencies` — Other issues that must be done first
+            8. Mark as groomed — Add `status:groomed` label and leave a summary comment. At the end of the comment, include:
+               > **Ready to build?** Comment `/build` on this issue to trigger the Wrench.
+
+            Important rules:
+            - Bugs always outrank features at the same priority tier
+            - Say NO to out-of-scope requests — be respectful but firm
+            - Be defensive about security — flag anything questionable
+            - Ask clarifying questions when the issue is incomplete
+            - Reference specific files from the codebase in your implementation plan
+            - Flag any safety constraints from CLAUDE.md that apply (auth, ownership checks, models-only data access, Fly replay)
+            - If the implementation requires changes to `.github/workflows/`, `Dockerfile`, `docker-compose.yml`, `fly.toml`, or deployment/infrastructure scripts, add the `area:devops` label (create it first: `gh label create "area:devops" -R ${{ github.repository }} --color "0E8A16" --description "CI/CD, deployment, Docker, Fly, workflow changes — manual implementation only" --force`). These issues cannot be built by the automated `build-next` workflow.
+            - Do NOT start building anything — your job is grooming only
+          claude_args: "--model claude-opus-4-6 --max-turns 20 --allowedTools Bash,Read,Glob,Grep"

@@ -1,0 +1,241 @@
+name: Build Next
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to build (leave blank to auto-pick next by priority)"
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build specific issue
+        if: inputs.issue_number != ''
+        uses: anthropics/claude-code-action@4e5d8b13ca281a6d163cdb287d8917b216e00d6f # v1.0.103
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "github-actions[bot]"
+          prompt: |
+            You are a Wrench (builder agent) on the Vehicle Work Log Pit Lane crew. You've been asked to implement issue #${{ inputs.issue_number }}.
+
+            Read `SERVICE_WRITER.md` for the full Wrench protocol. Read `CLAUDE.md`, `AGENTS.md`, and `AGENT.md` for code conventions and safety rules. Then follow this workflow:
+
+            ## 1. Verify the issue is ready
+
+            ```bash
+            gh issue view ${{ inputs.issue_number }} -R ${{ github.repository }}
+            ```
+
+            Check that the issue is labeled `status:groomed`. If not, stop and comment that the issue needs grooming first.
+
+            Check if a PR already exists:
+            ```bash
+            gh pr list -R ${{ github.repository }} --search "closes #${{ inputs.issue_number }} OR fixes #${{ inputs.issue_number }}" --state open --json number,title
+            ```
+            If an open PR exists, stop — another agent has already done the work.
+
+            ## 2. Claim it
+
+            Add the `status:in-progress` label:
+            ```bash
+            gh issue edit ${{ inputs.issue_number }} -R ${{ github.repository }} --add-label "status:in-progress"
+            ```
+
+            ## 3. Implement
+
+            - Create a working branch: `git checkout -b feature/<short-name>`
+            - Read the full issue spec (Problem, Solution, Acceptance Criteria, Key Files, Constraints, Dependencies)
+            - Follow the acceptance criteria exactly
+            - Follow all code conventions from CLAUDE.md (TypeScript strict, Remix flat routes, `.server.ts` suffix for server-only, `~/models/*.server.ts` for all Prisma access, `requireUserId`/`requireUser` on protected loaders/actions, ESLint `import/order`)
+            - Do NOT weaken auth / ownership checks
+            - Do NOT import `~/db.server` from routes — go through `app/models/*.server.ts`
+            - Do NOT add custom write endpoints that bypass the Fly replay logic in `server.ts`
+            - **Do NOT modify files under `.github/workflows/`** — GitHub Actions cannot push changes to its own workflow files. If the implementation requires workflow changes, note them in the PR body (see below).
+
+            ## 4. Test
+
+            Run `npm run typecheck`, `npm test -- --run`, and `npm run lint`. Fix any failures and re-run until green.
+
+            (The Cypress e2e suite runs in CI on the PR via `deploy.yml`; you don't need to run it locally unless your change affects e2e flows.)
+
+            ## 5. Commit & PR
+
+            - Commit with a clear message describing the change
+            - Push the branch and open a PR:
+              ```bash
+              gh pr create --title "feat: <description>" --body "$(cat <<'PRBODY'
+              Closes #${{ inputs.issue_number }}
+
+              ## Summary
+              <describe what was implemented>
+
+              ## Test plan
+              - [ ] `npm run typecheck` passes
+              - [ ] `npm test -- --run` passes
+              - [ ] `npm run lint` passes
+              - [ ] Manually verified affected user flow
+
+              ## Manual Steps Required
+              > **Note:** If the implementation requires changes to `.github/workflows/` files, list them here. GitHub Actions cannot modify its own workflow files — these changes must be applied manually.
+
+              - [ ] <list any required workflow changes, or remove this section if none>
+              PRBODY
+              )"
+              ```
+            - **PR title MUST use conventional commits** — it becomes the squash commit message:
+              - `fix: <description>` — bug fix
+              - `feat: <description>` — new feature
+              - `feat!: <description>` — breaking change
+              - `chore:`, `docs:`, `refactor:`, `test:`, `ci:` — non-feature
+              - Scopes are optional: `feat(vehicles): add VIN field`
+            - If the feature changes architecture, update `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, and `README.md`
+
+            ## 6. Clean up
+
+            Remove the in-progress label:
+            ```bash
+            gh issue edit ${{ inputs.issue_number }} -R ${{ github.repository }} --remove-label "status:in-progress"
+            ```
+
+            Do NOT manually close the issue — `Closes #<number>` in the PR body will auto-close it on merge.
+
+            ## If blocked
+
+            If you cannot complete the task, remove the label and leave a comment explaining why:
+            ```bash
+            gh issue edit ${{ inputs.issue_number }} -R ${{ github.repository }} --remove-label "status:in-progress"
+            gh issue comment ${{ inputs.issue_number }} -R ${{ github.repository }} --body "Blocked: [explain why]"
+            ```
+          claude_args: "--model claude-opus-4-6 --max-turns 100 --allowedTools Bash,Read,Write,Edit,Glob,Grep"
+
+      - name: Build next available issue (auto-pick)
+        if: inputs.issue_number == ''
+        uses: anthropics/claude-code-action@4e5d8b13ca281a6d163cdb287d8917b216e00d6f # v1.0.103
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "github-actions[bot]"
+          prompt: |
+            You are a Wrench (builder agent) on the Vehicle Work Log Pit Lane crew. Your job is to pick the next available feature from GitHub Issues and implement it end-to-end.
+
+            Read `SERVICE_WRITER.md` for the full Wrench protocol. Read `CLAUDE.md`, `AGENTS.md`, and `AGENT.md` for code conventions and safety rules. Then follow this workflow:
+
+            ## 1. Find the next task
+
+            Query open **groomed** issues by priority (P0 first, then P1, P2, P3). Only pick issues labeled `status:groomed`. Skip any labeled `status:in-progress`, `status:deferred`, or `area:devops` (devops issues require workflow / Docker / Fly changes that cannot be made by this automated builder). Within the same priority tier, pick bugs before features. Skip any whose dependencies (listed in the issue body under "Dependencies") reference issues that are still open.
+
+            ```bash
+            gh issue list -R ${{ github.repository }} --label "priority:P0,status:groomed" --state open \
+              --json number,title,labels \
+              --jq '[.[] | select(.labels | map(.name) | (contains(["status:in-progress"]) or contains(["status:deferred"]) or contains(["area:devops"])) | not)]'
+            ```
+
+            If no P0 is available, try P1, then P2, then P3. Within the same priority, pick bugs first, then prefer smaller complexity (S before M before L before XL).
+
+            **Before claiming a candidate issue**, check if a PR already exists:
+            ```bash
+            gh pr list -R ${{ github.repository }} --search "closes #<number> OR fixes #<number>" --state open --json number,title
+            ```
+            If an open PR is found, skip that issue and move to the next candidate.
+
+            If no eligible issues are found at any priority level, stop and report that there are no tasks available.
+
+            ## 2. Claim it
+
+            Add the `status:in-progress` label:
+            ```bash
+            gh issue edit <number> -R ${{ github.repository }} --add-label "status:in-progress"
+            ```
+
+            ## 3. Read the spec
+
+            ```bash
+            gh issue view <number> -R ${{ github.repository }}
+            ```
+
+            Read the full issue including Problem, Solution, Acceptance Criteria, Key Files, Constraints, and Dependencies.
+
+            ## 4. Implement
+
+            - Create a working branch: `git checkout -b feature/<short-name>`
+            - Follow the acceptance criteria exactly
+            - Follow all code conventions from CLAUDE.md (TypeScript strict, Remix flat routes, `.server.ts` suffix for server-only, `~/models/*.server.ts` for all Prisma access, `requireUserId`/`requireUser` on protected loaders/actions, ESLint `import/order`)
+            - Do NOT weaken auth / ownership checks
+            - Do NOT import `~/db.server` from routes — go through `app/models/*.server.ts`
+            - Do NOT add custom write endpoints that bypass the Fly replay logic in `server.ts`
+            - **Do NOT modify files under `.github/workflows/`** — GitHub Actions cannot push changes to its own workflow files. If the implementation requires workflow changes, note them in the PR body (see below).
+
+            ## 5. Test
+
+            Run `npm run typecheck`, `npm test -- --run`, and `npm run lint`. Fix any failures and re-run until green.
+
+            ## 6. Commit & PR
+
+            - Commit with a clear message describing the change
+            - Push the branch and open a PR:
+              ```bash
+              gh pr create --title "feat: <description>" --body "$(cat <<'PRBODY'
+              Closes #<number>
+
+              ## Summary
+              <describe what was implemented>
+
+              ## Test plan
+              - [ ] `npm run typecheck` passes
+              - [ ] `npm test -- --run` passes
+              - [ ] `npm run lint` passes
+              - [ ] Manually verified affected user flow
+
+              ## Manual Steps Required
+              > **Note:** If the implementation requires changes to `.github/workflows/` files, list them here. GitHub Actions cannot modify its own workflow files — these changes must be applied manually.
+
+              - [ ] <list any required workflow changes, or remove this section if none>
+              PRBODY
+              )"
+              ```
+            - **PR title MUST use conventional commits** — it becomes the squash commit message:
+              - `fix: <description>` — bug fix
+              - `feat: <description>` — new feature
+              - `feat!: <description>` — breaking change
+              - `chore:`, `docs:`, `refactor:`, `test:`, `ci:` — non-feature
+              - Scopes are optional: `feat(vehicles): add VIN field`
+            - If the feature changes architecture, update `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, and `README.md`
+
+            ## 7. Clean up
+
+            Remove the in-progress label. Do NOT manually close the issue — `Closes #<number>` in the PR body will auto-close it when the PR is merged.
+
+            ```bash
+            gh issue edit <number> -R ${{ github.repository }} --remove-label "status:in-progress"
+            ```
+
+            ## If blocked
+
+            If you cannot complete the task, remove the label and leave a comment:
+            ```bash
+            gh issue edit <number> -R ${{ github.repository }} --remove-label "status:in-progress"
+            gh issue comment <number> -R ${{ github.repository }} --body "Blocked: [explain why]"
+            ```
+
+            Then try the next available task.
+          claude_args: "--model claude-opus-4-6 --max-turns 100 --allowedTools Bash,Read,Write,Edit,Glob,Grep"

@@ -1,0 +1,57 @@
+name: "\U0001F4A1 Feature Request"
+description: Suggest a new feature or improvement for Vehicle Work Log
+labels: ["enhancement"]
+type: "Feature"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a feature! Fill out the sections below and the PM agent will triage, prioritize, and scope it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "\U0001F50D Problem"
+      description: What pain point or gap does this address?
+      placeholder: "e.g. When I look at my vehicle page, I can't see how much I've spent on maintenance this year..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "\U0001F4A1 Proposed Solution"
+      description: How do you think this should work? A rough idea is fine.
+      placeholder: "e.g. Show a 'Year to Date' spend total at the top of the vehicle detail page, with a breakdown by log type..."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: persona
+    attributes:
+      label: "\U0001F464 Who benefits?"
+      description: Which role would use this most?
+      options:
+        - Vehicle Owner (primary)
+        - DIY Mechanic
+        - Fleet Small-Owner (household / small business)
+        - Everyone
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "\U0001F504 Alternatives considered"
+      description: Have you tried any workarounds or seen this solved elsewhere?
+      placeholder: "e.g. I currently export the logs and tally them in a spreadsheet, but it's slow..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "\U0001F4CE Additional context"
+      description: Screenshots, links, or anything else that helps.
+    validations:
+      required: false

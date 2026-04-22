@@ -147,6 +147,87 @@ You can check the `x-fly-region` header on the response to know which region you
 
 We use GitHub Actions for continuous integration and deployment. Anything that gets into the `main` branch will be deployed to production after running tests/build/etc. Anything in the `dev` branch will be deployed to staging.
 
+## Pit Lane — maintenance & feature development (Claude agents)
+
+Day-to-day maintenance and feature work on this project is run by **Pit
+Lane**, a crew of Claude Code agents that live as GitHub Actions. They turn
+GitHub Issues into a roadmap and groomed issues into PRs. The personas are
+named after shop/garage roles — if you're used to standard PM / Architect /
+Builder terminology, the mapping is spelled out below.
+
+### The crew
+
+| Pit Lane name | Classic role | What it does | Lives in |
+|---------------|--------------|--------------|----------|
+| **Service Writer** | Product Manager | Triages new issues, sets priority/complexity/milestone, writes up the full spec, gatekeeps scope & security | `SERVICE_WRITER.md` + `.github/workflows/groom-issues.yml` |
+| **Chief Mechanic** | Software Architect | Periodic architecture review (auth/ownership audit, N+1 scan, schema hygiene, Fly-replay check, route-boundary error handling) — files issues for what it finds | `CHIEF_MECHANIC.md` |
+| **Crew Chief** | DevOps / Platform Engineer | Periodic CI/CD & infra review (workflows, Dockerfile, Fly deploy, secrets) — files `area:devops` issues | `CREW_CHIEF.md` |
+| **Wrench** | Builder / feature implementer | Picks a groomed issue, branches, implements against acceptance criteria, runs tests, opens a PR with `Closes #N` | `.github/workflows/build-next.yml` + `.github/workflows/build-issue.yml` |
+| **Test Driver** | QA / UX reviewer | Runs on every PR that touches user-facing code; comments with affected flows, a manual test plan, and UX/a11y/mobile notes | `TEST_DRIVER.md` + `.github/workflows/test-driver.yml` |
+
+See `AGENT.md` for the full project context each agent reads.
+
+### Flow
+
+1. **Open an issue** using the bug or feature template. The **Service
+   Writer** auto-grooms it: scope check → security check → priority
+   (`priority:P0`–`P3`) → complexity (`complexity:S`–`XL`) → phase
+   milestone, and then either
+   - asks clarifying questions (`status:needs-clarification`) — reply on
+     the issue and grooming re-triggers automatically, or
+   - writes the full spec (Problem, Solution, Implementation Plan,
+     Acceptance Criteria, Key Files, Constraints, Dependencies) and marks
+     the issue `status:groomed`.
+2. **Kick off a build** in one of three ways:
+   - Comment `/build` on any groomed issue → a **Wrench** claims it
+     (`status:in-progress`), branches, implements against the acceptance
+     criteria, runs `npm run typecheck` / `npm test` / `npm run lint`, and
+     opens a PR with `Closes #<number>`.
+   - Manually run the **Build Next** workflow with no input to auto-pick
+     the highest-priority groomed issue.
+   - Manually run **Build Next** with a specific issue number.
+3. **Test Driver** posts a review comment automatically on the PR (only
+   for PRs that touch `app/routes`, `app/components`, `app/root.tsx`,
+   `app/tailwind.css`, or `prisma/schema.prisma`). The comment lists the
+   affected user flows, a concrete manual test plan, and UX/a11y/mobile
+   notes.
+4. **Review the PR.** Comment `@claude` anywhere on the PR to have the
+   review agent (`claude-review.yml`) respond or make changes.
+5. **Merge.** Squash-merge with a [conventional commit](https://www.conventionalcommits.org/)
+   title (`feat:`, `fix:`, `chore:`, etc.). The issue auto-closes via
+   `Closes #<number>` and `deploy.yml` ships the change to Fly.
+
+### Re-groom or reset an issue
+
+Comment `/groom` on any issue to strip existing status labels and re-run
+the full grooming protocol from scratch — useful after significant
+discussion or when requirements change.
+
+### Issue labels
+
+| Label | Meaning |
+|-------|---------|
+| `status:needs-info` | Incomplete — waiting on reporter for basic information |
+| `status:needs-clarification` | Design questions — Service Writer has technical/architectural questions; auto-retriggers grooming when answered |
+| `status:groomed` | Fully specified — ready for a Wrench |
+| `status:in-progress` | Claimed by a Wrench |
+| `status:deferred` | Intentionally delayed |
+| `area:devops` | CI/CD, Docker, Fly, or workflow changes — skipped by `build-next` (GitHub Actions can't modify its own workflow files); the Crew Chief files these, humans or desktop Claude Code implement them |
+| `priority:P0`–`P3` / `complexity:S`–`XL` | Set by the Service Writer during grooming |
+
+### Required secret
+
+Add `CLAUDE_CODE_OAUTH_TOKEN` to the repo's GitHub Actions secrets.
+Without it the agent workflows will fail to authenticate. The existing
+`FLY_API_TOKEN` (used by `deploy.yml`) is unchanged.
+
+### Running agents locally
+
+The same prompts live under `.claude/commands/`. In a Claude Code session
+you can run `/groom-issues` (Service Writer) or `/build-next` (Wrench,
+with optional `devops` arg) locally — handy for `area:devops` work that
+the automated Wrench can't do.
+
 ## Testing
 
 ### Cypress
