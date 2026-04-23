@@ -36,7 +36,7 @@ jobs:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
 
       - name: Build worker bundle
-        run: npm run build:cf
+        run: npm run build
 
       - name: Deploy with Wrangler
         uses: cloudflare/wrangler-action@v3
