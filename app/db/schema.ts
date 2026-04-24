@@ -37,6 +37,8 @@ export const users = pgTable(
   {
     id: cuid2().primaryKey(),
     email: text().notNull(),
+    displayName: text("display_name"),
+    avatarPath: text("avatar_path"),
     ...timestamps,
   },
   (t) => [uniqueIndex("users_email_idx").on(t.email)],
