@@ -3,6 +3,7 @@ import {
   getRouteApi,
   Link,
   useNavigate,
+  useRouter,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
@@ -23,12 +24,14 @@ export const Route = createFileRoute("/_authed/vehicles/$vehicleId/")({
 });
 
 function VehicleDetail() {
+  const router = useRouter();
   const navigate = useNavigate();
   const v = parentApi.useLoaderData();
 
   async function onDelete() {
     if (!window.confirm(`Delete ${v.year} ${v.make} ${v.model}?`)) return;
     await deleteVehicleFn({ data: v.id });
+    await router.invalidate();
     navigate({ to: "/vehicles" });
   }
 

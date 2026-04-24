@@ -3,6 +3,7 @@ import {
   notFound,
   useNavigate,
   useParams,
+  useRouter,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
@@ -36,6 +37,7 @@ export const Route = createFileRoute(
 });
 
 function LogDetail() {
+  const router = useRouter();
   const navigate = useNavigate();
   const log = Route.useLoaderData();
   const { vehicleId, logId } = useParams({
@@ -45,6 +47,7 @@ function LogDetail() {
   async function onDelete() {
     if (!window.confirm(`Delete "${log.title}"?`)) return;
     await deleteLogFn({ data: { vehicleId, logId } });
+    await router.invalidate();
     navigate({
       to: "/vehicles/$vehicleId/logs",
       params: { vehicleId },
