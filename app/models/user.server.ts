@@ -7,6 +7,41 @@ import { passwords, users } from "~/db/schema";
 
 export type { User };
 
+export async function updateUser(
+  id: User["id"],
+  updates: { displayName?: string | null; avatarPath?: string | null },
+) {
+  const db = await getDb();
+  const [user] = await db
+    .update(users)
+    .set(updates)
+    .where(eq(users.id, id))
+    .returning();
+  return user ?? null;
+}
+
+export async function changePassword(
+  userId: User["id"],
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ error?: string }> {
+  const db = await getDb();
+  const row = await db
+    .select({ hash: passwords.hash })
+    .from(passwords)
+    .where(eq(passwords.userId, userId))
+    .limit(1);
+  const record = row[0];
+  if (!record) return { error: "No password on file" };
+
+  const ok = await bcrypt.compare(currentPassword, record.hash);
+  if (!ok) return { error: "Current password is incorrect" };
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await db.update(passwords).set({ hash }).where(eq(passwords.userId, userId));
+  return {};
+}
+
 export async function getUserById(id: User["id"]) {
   const db = await getDb();
   const [user] = await db.select().from(users).where(eq(users.id, id));
