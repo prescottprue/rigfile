@@ -4,6 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import { useAppSession } from "~/auth/session.server";
 import { getDb } from "~/db/client";
 import {
+  logFiles,
   logs,
   logsToParts,
   logsToTags,
@@ -49,26 +50,33 @@ export const Route = createFileRoute("/account/export")({
           ),
         );
 
-        const [tagJoins, partJoins, mechanicRows] = await Promise.all([
-          logIds.length
-            ? db
-                .select()
-                .from(logsToTags)
-                .where(inArray(logsToTags.logId, logIds))
-            : Promise.resolve([]),
-          logIds.length
-            ? db
-                .select()
-                .from(logsToParts)
-                .where(inArray(logsToParts.logId, logIds))
-            : Promise.resolve([]),
-          mechanicIds.length
-            ? db
-                .select()
-                .from(mechanics)
-                .where(inArray(mechanics.id, mechanicIds))
-            : Promise.resolve([]),
-        ]);
+        const [tagJoins, partJoins, mechanicRows, userLogFiles] =
+          await Promise.all([
+            logIds.length
+              ? db
+                  .select()
+                  .from(logsToTags)
+                  .where(inArray(logsToTags.logId, logIds))
+              : Promise.resolve([]),
+            logIds.length
+              ? db
+                  .select()
+                  .from(logsToParts)
+                  .where(inArray(logsToParts.logId, logIds))
+              : Promise.resolve([]),
+            mechanicIds.length
+              ? db
+                  .select()
+                  .from(mechanics)
+                  .where(inArray(mechanics.id, mechanicIds))
+              : Promise.resolve([]),
+            logIds.length
+              ? db
+                  .select()
+                  .from(logFiles)
+                  .where(inArray(logFiles.logId, logIds))
+              : Promise.resolve([]),
+          ]);
 
         const tagIds = Array.from(new Set(tagJoins.map((j) => j.tagId)));
         const partIds = Array.from(new Set(partJoins.map((j) => j.partId)));
@@ -94,6 +102,7 @@ export const Route = createFileRoute("/account/export")({
           mechanics: mechanicRows,
           tags: tagRows,
           parts: partRows,
+          logFiles: userLogFiles,
           logsToTags: tagJoins,
           logsToParts: partJoins,
         };

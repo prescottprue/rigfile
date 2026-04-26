@@ -15,7 +15,7 @@ function LogsList() {
   const { vehicleId } = useParams({
     from: "/_authed/vehicles/$vehicleId/logs/",
   });
-  const logs = logsApi.useLoaderData();
+  const { logs, fileCounts } = logsApi.useLoaderData();
   return (
     <section>
       <div className="flex items-center justify-between">
@@ -32,24 +32,36 @@ function LogsList() {
         <p className="mt-6 text-slate-600">No logs yet.</p>
       ) : (
         <ul className="mt-6 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
-          {logs.map((log) => (
-            <li key={log.id} className="p-4">
-              <Link
-                to="/vehicles/$vehicleId/logs/$logId"
-                params={{ vehicleId, logId: log.id }}
-                className="block"
-              >
-                <div className="font-medium text-slate-900">{log.title}</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {log.servicedAt.toLocaleDateString()}
-                  {log.type ? ` · ${log.type}` : ""}
-                  {log.odometer != null
-                    ? ` · ${log.odometer.toLocaleString()} mi`
-                    : ""}
-                </div>
-              </Link>
-            </li>
-          ))}
+          {logs.map((log) => {
+            const count = fileCounts[log.id] ?? 0;
+            return (
+              <li key={log.id} className="p-4">
+                <Link
+                  to="/vehicles/$vehicleId/logs/$logId"
+                  params={{ vehicleId, logId: log.id }}
+                  className="block"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-900">
+                      {log.title}
+                    </span>
+                    {count > 0 ? (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                        {count} {count === 1 ? "file" : "files"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {log.servicedAt.toLocaleDateString()}
+                    {log.type ? ` · ${log.type}` : ""}
+                    {log.odometer != null
+                      ? ` · ${log.odometer.toLocaleString()} mi`
+                      : ""}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

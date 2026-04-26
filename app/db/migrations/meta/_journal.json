@@ -15,6 +15,13 @@
       "when": 1777051844962,
       "tag": "0001_clever_marauders",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777192448864,
+      "tag": "0002_worthless_lockjaw",
+      "breakpoints": true
     }
   ]
 }

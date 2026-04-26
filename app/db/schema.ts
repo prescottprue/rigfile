@@ -161,6 +161,30 @@ export const logsToParts = pgTable(
   (t) => [primaryKey({ columns: [t.logId, t.partId] })],
 );
 
+export const logFiles = pgTable(
+  "log_files",
+  {
+    id: cuid2().primaryKey(),
+    logId: text("log_id")
+      .notNull()
+      .references(() => logs.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    filePath: text("file_path").notNull(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    fileSize: integer("file_size").notNull(),
+    category: text().notNull(),
+    description: text(),
+    ...timestamps,
+  },
+  (t) => [
+    index("log_files_log_idx").on(t.logId),
+    index("log_files_user_idx").on(t.userId),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Vehicle = typeof vehicles.$inferSelect;
@@ -170,3 +194,5 @@ export type NewLog = typeof logs.$inferInsert;
 export type Mechanic = typeof mechanics.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type Part = typeof parts.$inferSelect;
+export type LogFile = typeof logFiles.$inferSelect;
+export type NewLogFile = typeof logFiles.$inferInsert;
