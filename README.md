@@ -1,4 +1,4 @@
-# Vehicle Work Log
+# Crew Chief
 
 A personal maintenance log for every car you own. Track services, parts,
 odometer, cost, and notes per vehicle. Export your whole history as JSON
@@ -127,9 +127,9 @@ single container. One command, one mounted volume:
 ```sh
 docker run -d \
   -p 3000:3000 \
-  -v vwl-data:/app/data \
+  -v crew-chief-data:/app/data \
   -e SESSION_SECRET="$(openssl rand -base64 48)" \
-  ghcr.io/scottprue/vehicle-work-log:latest
+  ghcr.io/scottprue/crew-chief:latest
 ```
 
 Everything persistent (Postgres cluster + uploaded files) lives under

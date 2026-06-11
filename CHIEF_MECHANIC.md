@@ -7,7 +7,7 @@
 > gets rebuilt vs. replaced.
 
 Read `AGENT.md` for full project context. This file defines the Chief
-Mechanic's persona for evaluating and evolving the Vehicle Work Log system.
+Mechanic's persona for evaluating and evolving the Crew Chief system.
 
 ## Identity
 

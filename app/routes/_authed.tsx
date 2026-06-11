@@ -76,8 +76,7 @@ function AuthedLayout() {
             >
               🏁
             </span>
-            <span className="hidden sm:inline">Vehicle Work Log</span>
-            <span className="sm:hidden">VWL</span>
+            <span>Crew Chief</span>
           </Link>
           <div className="flex items-center gap-2">
             <GarageModeToggle />

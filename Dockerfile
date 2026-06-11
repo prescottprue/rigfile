@@ -1,7 +1,7 @@
 # Self-host image: app + Postgres 16 + s6-overlay, one mounted /app/data volume.
 # Run with:
-#   docker run -d -p 3000:3000 -v vwl-data:/app/data \
-#     -e SESSION_SECRET=... ghcr.io/scottprue/vehicle-work-log:latest
+#   docker run -d -p 3000:3000 -v crew-chief-data:/app/data \
+#     -e SESSION_SECRET=... ghcr.io/scottprue/crew-chief:latest
 
 ARG NODE_VERSION=24
 ARG S6_OVERLAY_VERSION=3.2.0.2

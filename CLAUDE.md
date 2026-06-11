@@ -1,4 +1,4 @@
-# CLAUDE.md — Vehicle Work Log
+# CLAUDE.md — Crew Chief
 
 Quick reference for Claude Code sessions in this repo. Read `README.md` for
 user-facing context and tool-choice rationale.
