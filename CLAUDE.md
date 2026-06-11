@@ -1,4 +1,4 @@
-# CLAUDE.md — Crew Chief
+# CLAUDE.md — Logbook
 
 Quick reference for Claude Code sessions in this repo. Read `README.md` for
 user-facing context and tool-choice rationale.
@@ -211,9 +211,9 @@ including a backlog of paper shop invoices.
   photo still attaches on save.
 - Deliberately NOT the Anthropic API — cost. Don't suggest it for this.
 
-### 2. Crew Chief MCP server
+### 2. Logbook MCP server
 
-So the crew can talk to Crew Chief from their own Claude accounts
+So the crew can talk to Logbook from their own Claude accounts
 (claude.ai custom connector, works on mobile). NOTE: rally-specific
 features stay OUT of the app — the app is generic vehicle maintenance;
 rally procedure lives in Scott's external rebelle-rally skill, which will

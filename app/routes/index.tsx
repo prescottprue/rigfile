@@ -8,7 +8,7 @@ function Home() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-8">
       <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="text-3xl font-semibold text-slate-900">Crew Chief</h1>
+        <h1 className="text-3xl font-semibold text-slate-900">Logbook</h1>
         <p className="mt-2 text-slate-600">
           Keep a maintenance record for every car you own.
         </p>
