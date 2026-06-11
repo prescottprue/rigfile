@@ -166,11 +166,36 @@ Remix/Prisma stack in places and are queued for a refresh pass.
   `.output/server/index.mjs` but runtime 404s on all routes — SSR
   fallback wiring. Tracked for the self-host image release.
 
-## Next up: Crew Chief MCP server
+## Next up (June 2026, in priority order)
 
-Planned (June 2026) so Scott's wife and her rally teammate can talk to
-Crew Chief from their own Claude accounts (claude.ai custom connector,
-works on mobile):
+### 1. Scan Bay — paper shop-record ingestion (local AI, $0)
+
+The app's core purpose is digitizing Scott's vehicle maintenance records,
+including a backlog of paper shop invoices. Plan validated against local
+hardware (M3 Pro / 18 GB, Ollama installed):
+
+- **Batch CLI** (`scripts/` + local Ollama `qwen3-vl:8b`, JSON-schema
+  structured output via `format` on `/api/chat`, temperature 0): folder of
+  scans → extracted JSON review file → import creates logs via the model
+  layer + stores the original scan with each log. Working extraction
+  prompt/schema prototype: `/tmp/extract-receipt.sh` (recreate if gone —
+  fields: shopName/location, invoiceNumber, serviceDate, vehicle, odometer,
+  totalCost, lineItems[], suggestedTitle, recommendedWork).
+- Needs a `log_attachments` table (logId, path, contentType) — storage
+  layer already handles uploads.
+- `recommendedWork` (tech notes like "pads at 5mm, replace in 5k mi") can
+  prefill a reminder.
+- **In-app one-off scans (phase 2):** same schema via Cloudflare Workers
+  AI binding (free tier) so phone captures work without the Mac.
+- Deliberately NOT the Anthropic API — cost. Don't suggest it for this.
+
+### 2. Crew Chief MCP server
+
+So the crew can talk to Crew Chief from their own Claude accounts
+(claude.ai custom connector, works on mobile). NOTE: rally-specific
+features stay OUT of the app — the app is generic vehicle maintenance;
+rally procedure lives in Scott's external rebelle-rally skill, which will
+call these MCP tools:
 
 - Remote MCP endpoint at `/mcp` on the existing Worker — Cloudflare
   `agents` SDK (`McpAgent`) + `workers-oauth-provider`, OAuth backed by
