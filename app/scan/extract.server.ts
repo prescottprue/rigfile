@@ -84,6 +84,35 @@ export function parseWorkersAiResponse(result: unknown): unknown {
  * when no extraction backend is reachable — the scan page surfaces it and
  * lets the user fill the log in manually (the photo still gets attached).
  */
+/**
+ * Workers AI error 5016: Meta-licensed models require a one-time, per-account
+ * license acceptance — submitting the literal prompt "agree" to the model.
+ * Exported for tests.
+ */
+export function isLicenseAgreementError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /\b5016\b|prompt 'agree'|submit(?:ting)? 'agree'/i.test(message);
+}
+
+async function runWorkersAiExtraction(
+  workersAi: { ai: WorkersAi; model: string },
+  image: Uint8Array,
+): Promise<ExtractedReceipt> {
+  // The model's input schema takes the image as an array of 8-bit ints
+  // alongside a plain prompt; JSON mode rides on response_format.
+  const result = await workersAi.ai.run(workersAi.model, {
+    prompt: EXTRACTION_PROMPT,
+    image: Array.from(image),
+    response_format: {
+      type: "json_schema",
+      json_schema: RECEIPT_JSON_SCHEMA,
+    },
+    temperature: 0,
+    max_tokens: 1024,
+  });
+  return normalizeReceipt(parseWorkersAiResponse(result));
+}
+
 export async function extractReceiptScan(
   image: Uint8Array,
 ): Promise<ExtractedReceipt> {
@@ -92,24 +121,24 @@ export async function extractReceiptScan(
 
   if (workersAi) {
     try {
-      // The model's input schema takes the image as an array of 8-bit ints
-      // alongside a plain prompt; JSON mode rides on response_format.
-      const result = await workersAi.ai.run(workersAi.model, {
-        prompt: EXTRACTION_PROMPT,
-        image: Array.from(image),
-        response_format: {
-          type: "json_schema",
-          json_schema: RECEIPT_JSON_SCHEMA,
-        },
-        temperature: 0,
-        max_tokens: 1024,
-      });
-      return normalizeReceipt(parseWorkersAiResponse(result));
+      return await runWorkersAiExtraction(workersAi, image);
     } catch (err) {
-      // Don't give up yet — in dev the binding exists but remote bindings
-      // may be off (CF_REMOTE_BINDINGS unset), and a local Ollama may be
-      // running. On production Workers the Ollama attempt fails fast.
-      workersAiError = err instanceof Error ? err : new Error(String(err));
+      if (isLicenseAgreementError(err)) {
+        // First-ever call on this Cloudflare account: accept the Meta
+        // license (one-time, per account) and retry the extraction.
+        try {
+          await workersAi.ai.run(workersAi.model, { prompt: "agree" });
+          return await runWorkersAiExtraction(workersAi, image);
+        } catch (retryErr) {
+          workersAiError =
+            retryErr instanceof Error ? retryErr : new Error(String(retryErr));
+        }
+      } else {
+        // Don't give up yet — in dev the binding exists but remote bindings
+        // may be off (CF_REMOTE_BINDINGS unset), and a local Ollama may be
+        // running. On production Workers the Ollama attempt fails fast.
+        workersAiError = err instanceof Error ? err : new Error(String(err));
+      }
     }
   }
 

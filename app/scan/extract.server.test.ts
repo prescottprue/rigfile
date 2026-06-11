@@ -2,8 +2,29 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   extractReceiptScan,
+  isLicenseAgreementError,
   parseWorkersAiResponse,
 } from "~/scan/extract.server";
+
+describe("isLicenseAgreementError", () => {
+  it("matches the Workers AI 5016 license-gate error", () => {
+    // Verbatim shape seen in production (typo included).
+    expect(
+      isLicenseAgreementError(
+        new Error(
+          "5016: Prior to using this model you must sumbit the prompt " +
+            "'agree'. By submitting 'agree', you hereby agree to the " +
+            "llama-3.2-11b-vision-instruction Community License",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("ignores unrelated errors", () => {
+    expect(isLicenseAgreementError(new Error("3036: capacity"))).toBe(false);
+    expect(isLicenseAgreementError(new Error("network timeout"))).toBe(false);
+  });
+});
 
 describe("parseWorkersAiResponse", () => {
   it("passes through an already-parsed response object", () => {
