@@ -40,7 +40,7 @@ image.
 | Cloud deploy         | Cloudflare Workers + Hyperdrive + Neon + R2  |
 | Self-host deploy     | Single Docker image (app + Postgres + data volume) |
 | Lint / format        | [Biome 2](https://biomejs.dev)                |
-| Tests                | Vitest (integration), Playwright (planned)   |
+| Tests                | Vitest (integration), Playwright e2e smoke tests |
 | Auth                 | Cookie session via TanStack Start `useSession` + bcryptjs |
 | Styling              | Tailwind v4                                  |
 
@@ -331,8 +331,10 @@ breaking old bundles.
 
 Near-term:
 
-- Playwright e2e coverage for login → vehicle → avatar upload → log → export
-  flows
+- Extend Playwright e2e coverage to avatar upload, export, crew invites,
+  and reminder completion (registration/login/vehicle/log flows are covered)
+- MCP server on the Worker (`/mcp`) so the crew can log work and check
+  what's due from their own Claude accounts — OAuth against existing users
 - Finalize the single-container self-host image and publish the first GHCR
   release
 - Fix the Nitro 3 + TanStack Start node-build integration so `npm run build:node`
