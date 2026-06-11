@@ -37,7 +37,7 @@ user-facing context and tool-choice rationale.
 ```sh
 npm run docker:dev      # start local Postgres (pgvector/pgvector:pg16 on :5440)
 npm run db:migrate      # apply Drizzle migrations
-npm run db:seed         # creates scott@example.com / scottiscool + seed vehicle
+npm run db:seed         # scott@example.com / scottiscool + vehicle, log, reminders, project
 npm run db:generate     # after schema changes
 npm run db:studio       # Drizzle Studio against local DB
 npm run dev             # Vite dev server on :3000
@@ -165,6 +165,24 @@ Remix/Prisma stack in places and are queued for a refresh pass.
 - `npm run build:node` (Nitro + TanStack Start node preset) produces
   `.output/server/index.mjs` but runtime 404s on all routes — SSR
   fallback wiring. Tracked for the self-host image release.
+
+## Next up: Crew Chief MCP server
+
+Planned (June 2026) so Scott's wife and her rally teammate can talk to
+Crew Chief from their own Claude accounts (claude.ai custom connector,
+works on mobile):
+
+- Remote MCP endpoint at `/mcp` on the existing Worker — Cloudflare
+  `agents` SDK (`McpAgent`) + `workers-oauth-provider`, OAuth backed by
+  the existing `users` table + session auth (login screen on connect; no
+  API keys for end users).
+- Tools are thin wrappers over `app/models/*` so crew-membership
+  authorization is enforced for free: `log_work`, `whats_due`,
+  `complete_reminder`, `get_vehicle_status`, `list_projects`,
+  `add_project_item`, `update_item_status`.
+- A rally-prep skill (Rebelle Rally — Scott has a draft) layers event
+  procedure on top and calls these tools; keep event-specific content in
+  the skill, generic data access in MCP.
 
 ## Documentation policy
 
