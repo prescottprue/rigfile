@@ -54,6 +54,23 @@ describe("parseWorkersAiResponse", () => {
     ).toEqual({ odometer: 84612 });
   });
 
+  it("unwraps a nested response.content string", () => {
+    expect(
+      parseWorkersAiResponse({
+        response: { content: '{"suggestedTitle":"Coolant flush"}' },
+      }),
+    ).toEqual({ suggestedTitle: "Coolant flush" });
+  });
+
+  it("digs JSON out of prose wrapping", () => {
+    expect(
+      parseWorkersAiResponse({
+        response:
+          'Here is the extracted data:\n{"totalCost":213,"odometer":84612}\nLet me know if you need anything else!',
+      }),
+    ).toEqual({ totalCost: 213, odometer: 84612 });
+  });
+
   it("throws on empty or junk responses", () => {
     expect(() => parseWorkersAiResponse({})).toThrow("empty response");
     expect(() => parseWorkersAiResponse({ response: "not json" })).toThrow(

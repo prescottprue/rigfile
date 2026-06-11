@@ -64,13 +64,30 @@ export function parseWorkersAiResponse(result: unknown): unknown {
     payload = first?.message?.content;
   }
 
-  if (payload != null && typeof payload === "object") return payload;
+  if (payload != null && typeof payload === "object") {
+    // Some response shapes nest the actual text one level deeper
+    // (e.g. `{ response: { content: "…" } }`). Unwrap before giving up.
+    const inner = (payload as Record<string, unknown>).content;
+    if (typeof inner === "string") payload = inner;
+    else return payload;
+  }
   if (typeof payload === "string") {
     // Tolerate markdown fencing around the JSON body.
     const text = payload.replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, "");
     try {
       return JSON.parse(text);
     } catch {
+      // The model wrapped JSON in prose ("Here is the extracted data: {…}").
+      // Take the outermost brace span and try that before failing.
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start !== -1 && end > start) {
+        try {
+          return JSON.parse(text.slice(start, end + 1));
+        } catch {
+          // fall through to the descriptive error below
+        }
+      }
       throw new Error(
         `Workers AI did not return valid JSON: ${text.slice(0, 200)}`,
       );
@@ -79,11 +96,6 @@ export function parseWorkersAiResponse(result: unknown): unknown {
   throw new Error("Workers AI returned an empty response");
 }
 
-/**
- * Extract a receipt from one image. Throws with a human-readable message
- * when no extraction backend is reachable — the scan page surfaces it and
- * lets the user fill the log in manually (the photo still gets attached).
- */
 /**
  * Workers AI error 5016: Meta-licensed models require a one-time, per-account
  * license acceptance — submitting the literal prompt "agree" to the model.
@@ -98,10 +110,20 @@ async function runWorkersAiExtraction(
   workersAi: { ai: WorkersAi; model: string },
   image: Uint8Array,
 ): Promise<ExtractedReceipt> {
-  // The model's input schema takes the image as an array of 8-bit ints
-  // alongside a plain prompt; JSON mode rides on response_format.
+  // JSON mode (`response_format`) is only honored on the chat/messages
+  // input form — with a bare `prompt` the request routes to the
+  // image-to-text task and the schema is ignored, yielding prose. The
+  // image itself still rides at the top level as an array of 8-bit ints.
   const result = await workersAi.ai.run(workersAi.model, {
-    prompt: EXTRACTION_PROMPT,
+    // The JSON nudge is belt-and-braces for runs where response_format is
+    // ignored; Ollama enforces the schema natively so it stays out of the
+    // shared EXTRACTION_PROMPT.
+    messages: [
+      {
+        role: "user",
+        content: `${EXTRACTION_PROMPT} Respond with only a JSON object — no prose.`,
+      },
+    ],
     image: Array.from(image),
     response_format: {
       type: "json_schema",
@@ -113,6 +135,11 @@ async function runWorkersAiExtraction(
   return normalizeReceipt(parseWorkersAiResponse(result));
 }
 
+/**
+ * Extract a receipt from one image. Throws with a human-readable message
+ * when no extraction backend is reachable — the scan page surfaces it and
+ * lets the user fill the log in manually (the photo still gets attached).
+ */
 export async function extractReceiptScan(
   image: Uint8Array,
 ): Promise<ExtractedReceipt> {
@@ -140,6 +167,18 @@ export async function extractReceiptScan(
         workersAiError = err instanceof Error ? err : new Error(String(err));
       }
     }
+  }
+
+  // The Ollama fallback only makes sense where localhost can exist: Node
+  // self-host (no binding) and local dev (binding present, remote bindings
+  // off). On deployed Workers a localhost fetch just bounces off Cloudflare
+  // (403, error 1003) and buries the real error, so fail with the Workers
+  // AI message directly.
+  const isDev = (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
+  if (workersAiError && !isDev) {
+    throw new Error(
+      `Receipt extraction failed (Workers AI: ${workersAiError.message})`,
+    );
   }
 
   try {
