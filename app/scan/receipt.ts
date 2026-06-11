@@ -78,7 +78,8 @@ export const EXTRACTION_PROMPT =
   "anything not present. odometer should be the odometer-in reading if both " +
   "in/out are shown. totalCost is the final amount paid. serviceDate in " +
   "YYYY-MM-DD. recommendedWork captures any tech notes about future or " +
-  "recommended service.";
+  "recommended service. suggestedTitle is a short summary of the work " +
+  'performed (e.g. "Front brakes + oil change") — never the shop name.';
 
 /** Coerce a value to a finite number, or null. Strips `$`, commas, units. */
 function toNumber(value: unknown): number | null {

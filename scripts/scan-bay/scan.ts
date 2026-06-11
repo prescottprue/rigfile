@@ -12,7 +12,7 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { DEFAULT_OLLAMA, extractReceipt } from "./ollama.ts";
+import { DEFAULT_OLLAMA, extractReceipt } from "~/scan/ollama.server.ts";
 import { isScannable, type ReviewEntry, type ReviewFile } from "./review.ts";
 
 type Args = {

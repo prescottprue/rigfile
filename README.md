@@ -363,8 +363,32 @@ Notes:
 - `--vehicle` targets the vehicle; the acting user defaults to that vehicle's
   owner (override with `--user`). All writes go through the model layer, so
   crew-access checks apply.
-- The extraction prompt + JSON schema live in `app/scan/receipt.ts`, shared so
-  the planned in-app one-off scan (Cloudflare Workers AI) extracts identically.
+- The extraction prompt + JSON schema live in `app/scan/receipt.ts`, shared
+  with the in-app scan page below so both paths extract identically.
+
+### In-app scans — snap it at the shop counter
+
+For one-off receipts there's no need for the Mac: every vehicle has a
+**📷 Scan receipt** button that opens the phone camera (or photo library),
+reads the receipt, and prefills an editable work log — cost, odometer, date,
+line items in the notes, plus a one-tap follow-up reminder when the tech
+noted recommended work. The photo is attached to the log either way, so even
+when extraction misses, you save the record first and fix fields later.
+
+How it extracts, by runtime:
+
+- **Cloudflare Workers (production)**: the Workers AI binding
+  (`@cf/meta/llama-3.2-11b-vision-instruct` on the free tier — override with
+  a `SCAN_MODEL` Workers var) using the same JSON-schema structured output.
+- **Node self-host / local dev**: falls back to the same local Ollama setup
+  the batch CLI uses (`OLLAMA_HOST` / `SCAN_MODEL`).
+
+Photos are downscaled client-side (~1600px JPEG) before upload, so a 12 MB
+phone photo becomes a few hundred KB round-trip.
+
+Dev note: Workers AI has no local simulator, so the binding is dev-disabled
+unless you opt in with `CF_REMOTE_BINDINGS=1 npm run dev` (requires
+`wrangler login`); without it, dev scans use local Ollama.
 
 ## Roadmap
 
@@ -383,11 +407,8 @@ Near-term:
 
 Near-term, garage edition:
 
-- Scan Bay phase 2: in-app one-off scans via the Cloudflare Workers AI binding
-  (free tier) so phone captures work without the Mac — reuses
-  `app/scan/receipt.ts`
-- Photos on work logs (storage layer already handles uploads; the
-  `log_attachments` table from Scan Bay backs this)
+- Photos on existing work logs (the scan page attaches at creation; adding
+  more photos to a saved log is the missing piece)
 - Email/push notifications when a reminder goes overdue
 - Fuel tracking (fill-ups double as cheap odometer updates for reminders)
 - Printable maintenance history per vehicle (rally tech-inspection sheet)
