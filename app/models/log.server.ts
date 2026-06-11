@@ -2,42 +2,81 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 import { getDb } from "~/db/client";
 import type { Log, NewLog } from "~/db/schema";
-import { logs } from "~/db/schema";
+import { logs, users, vehicleMembers } from "~/db/schema";
+import { requireVehicleAccess } from "~/models/member.server";
 
 export type { Log };
 
+export type LogListItem = Log & {
+  authorName: string | null;
+};
+
+/**
+ * `userId` here is the requesting user — access is granted via crew
+ * membership on the vehicle, not log authorship.
+ */
 export async function getLog({
   id,
   userId,
   vehicleId,
-}: Pick<Log, "id" | "userId" | "vehicleId">) {
+}: Pick<Log, "id" | "userId" | "vehicleId">): Promise<LogListItem | null> {
+  await requireVehicleAccess({ vehicleId, userId });
   const db = await getDb();
-  const [log] = await db
-    .select()
+  const [row] = await db
+    .select({
+      log: logs,
+      authorName: sql<
+        string | null
+      >`coalesce(${users.displayName}, ${users.email})`,
+    })
     .from(logs)
-    .where(
-      and(
-        eq(logs.id, id),
-        eq(logs.userId, userId),
-        eq(logs.vehicleId, vehicleId),
-      ),
-    );
-  return log ?? null;
+    .leftJoin(users, eq(users.id, logs.userId))
+    .where(and(eq(logs.id, id), eq(logs.vehicleId, vehicleId)));
+  if (!row) return null;
+  return { ...row.log, authorName: row.authorName };
 }
 
 export async function getLogListItems({
   userId,
   vehicleId,
-}: Pick<Log, "userId" | "vehicleId">) {
+  limit,
+}: Pick<Log, "userId" | "vehicleId"> & {
+  limit?: number;
+}): Promise<LogListItem[]> {
+  await requireVehicleAccess({ vehicleId, userId });
   const db = await getDb();
-  return db
-    .select()
+  const query = db
+    .select({
+      log: logs,
+      authorName: sql<
+        string | null
+      >`coalesce(${users.displayName}, ${users.email})`,
+    })
     .from(logs)
-    .where(and(eq(logs.userId, userId), eq(logs.vehicleId, vehicleId)))
-    .orderBy(desc(logs.updatedAt));
+    .leftJoin(users, eq(users.id, logs.userId))
+    .where(eq(logs.vehicleId, vehicleId))
+    .orderBy(desc(logs.servicedAt), desc(logs.createdAt));
+  const rows = await (limit != null ? query.limit(limit) : query);
+  return rows.map((r) => ({ ...r.log, authorName: r.authorName }));
+}
+
+/** Highest odometer ever logged for the vehicle (best guess at current). */
+export async function getLatestOdometer({
+  vehicleId,
+}: Pick<Log, "vehicleId">): Promise<number | null> {
+  const db = await getDb();
+  const [row] = await db
+    .select({ latest: sql<number | null>`max(${logs.odometer})` })
+    .from(logs)
+    .where(eq(logs.vehicleId, vehicleId));
+  return row?.latest ?? null;
 }
 
 export async function createLog(input: NewLog) {
+  await requireVehicleAccess({
+    vehicleId: input.vehicleId,
+    userId: input.userId,
+  });
   const db = await getDb();
   const [log] = await db.insert(logs).values(input).returning();
   if (!log) throw new Error("Failed to create log");
@@ -49,21 +88,16 @@ export async function deleteLog({
   userId,
   vehicleId,
 }: Pick<Log, "id" | "userId" | "vehicleId">) {
+  await requireVehicleAccess({ vehicleId, userId });
   const db = await getDb();
   return db
     .delete(logs)
-    .where(
-      and(
-        eq(logs.id, id),
-        eq(logs.userId, userId),
-        eq(logs.vehicleId, vehicleId),
-      ),
-    );
+    .where(and(eq(logs.id, id), eq(logs.vehicleId, vehicleId)));
 }
 
 /**
- * Full-text search over a user's logs using the generated `search_tsv` column
- * + GIN index. Returns logs ordered by updatedAt desc.
+ * Full-text search over logs on every vehicle the user can access, using
+ * the generated `search_tsv` column + GIN index.
  */
 export async function searchLogs({
   userId,
@@ -76,14 +110,17 @@ export async function searchLogs({
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  return db
-    .select()
+  const rows = await db
+    .select({ log: logs })
     .from(logs)
-    .where(
+    .innerJoin(
+      vehicleMembers,
       and(
-        eq(logs.userId, userId),
-        sql`${logs.searchTsv} @@ plainto_tsquery('english', ${trimmed})`,
+        eq(vehicleMembers.vehicleId, logs.vehicleId),
+        eq(vehicleMembers.userId, userId),
       ),
     )
+    .where(sql`${logs.searchTsv} @@ plainto_tsquery('english', ${trimmed})`)
     .orderBy(desc(logs.updatedAt));
+  return rows.map((r) => r.log);
 }

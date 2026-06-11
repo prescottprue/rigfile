@@ -8,6 +8,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 
 import { requireAuth } from "~/auth/session.server";
+import { card } from "~/components/ui";
 import { deleteLog, getLog } from "~/models/log.server";
 
 const loadLogFn = createServerFn({ method: "GET" })
@@ -56,44 +57,49 @@ function LogDetail() {
 
   return (
     <section>
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{log.title}</h1>
-          <div className="mt-1 text-sm text-slate-500">
+          <h2 className="text-xl font-bold text-ink">{log.title}</h2>
+          <div className="mt-1 text-sm text-ink-muted">
             {log.servicedAt.toLocaleDateString()}
             {log.type ? ` · ${log.type}` : ""}
+            {log.authorName ? ` · logged by ${log.authorName}` : ""}
           </div>
         </div>
         <button
           type="button"
           onClick={onDelete}
-          className="text-sm text-red-600 hover:underline"
+          className="shrink-0 text-sm text-danger hover:underline"
         >
           Delete
         </button>
       </div>
       {log.notes ? (
-        <p className="mt-4 whitespace-pre-wrap text-slate-700">{log.notes}</p>
+        <p className="mt-4 whitespace-pre-wrap text-ink">{log.notes}</p>
       ) : null}
-      <dl className="mt-6 grid grid-cols-2 gap-4 text-sm">
-        {log.odometer != null ? (
-          <div>
-            <dt className="text-slate-500">Odometer</dt>
-            <dd className="text-slate-900">{log.odometer.toLocaleString()}</dd>
-          </div>
-        ) : null}
-        {log.cost != null ? (
-          <div>
-            <dt className="text-slate-500">Cost</dt>
-            <dd className="text-slate-900">${log.cost.toFixed(2)}</dd>
-          </div>
-        ) : null}
-        {log.selfService ? (
-          <div>
-            <dt className="text-slate-500">Self-service</dt>
-            <dd className="text-slate-900">Yes</dd>
-          </div>
-        ) : null}
+      <dl
+        className={`${card} mt-6 grid grid-cols-2 gap-4 p-5 text-sm sm:grid-cols-3`}
+      >
+        <div>
+          <dt className="text-ink-muted">Odometer</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-ink">
+            {log.odometer != null
+              ? `${Math.round(log.odometer).toLocaleString()} mi`
+              : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-ink-muted">Cost</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-ink">
+            {log.cost != null ? `$${log.cost.toFixed(2)}` : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-ink-muted">Who did it</dt>
+          <dd className="mt-0.5 font-semibold text-ink">
+            {log.selfService ? "DIY 🔧" : "Shop"}
+          </dd>
+        </div>
       </dl>
     </section>
   );

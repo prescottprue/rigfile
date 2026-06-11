@@ -4,6 +4,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
 import { requireAuth } from "~/auth/session.server";
+import {
+  btnPrimary,
+  errorBox,
+  input,
+  label as labelClass,
+} from "~/components/ui";
 import { createVehicle } from "~/models/vehicle.server";
 import { getStorage } from "~/storage.server";
 
@@ -87,32 +93,24 @@ function NewVehiclePage() {
 
   return (
     <section>
-      <h1 className="text-2xl font-semibold text-slate-900">Add vehicle</h1>
+      <h1 className="text-2xl font-bold text-ink">Add vehicle</h1>
       <form onSubmit={onSubmit} className="mt-6 max-w-lg space-y-4">
-        {error ? (
-          <p className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">
-            {error}
-          </p>
-        ) : null}
+        {error ? <p className={errorBox}>{error}</p> : null}
         <Field name="name" label="Name (optional)" />
         <Field name="make" label="Make" required />
         <Field name="model" label="Model" required />
         <Field name="trim" label="Trim (optional)" />
         <Field name="year" label="Year" type="number" required />
-        <label className="block text-sm font-medium text-slate-700">
-          Avatar (PNG or JPEG, ≤500KB, optional)
+        <label className={labelClass}>
+          Photo (PNG or JPEG, ≤500KB, optional)
           <input
             name="avatar"
             type="file"
             accept="image/png,image/jpeg"
-            className="mt-1 block w-full text-sm"
+            className="mt-1 block w-full text-sm text-ink"
           />
         </label>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
+        <button type="submit" disabled={pending} className={btnPrimary}>
           {pending ? "Saving…" : "Save"}
         </button>
       </form>
@@ -132,14 +130,9 @@ function Field({
   required?: boolean;
 }) {
   return (
-    <label className="block text-sm font-medium text-slate-700">
+    <label className={labelClass}>
       {label}
-      <input
-        name={name}
-        type={type}
-        required={required}
-        className="mt-1 w-full rounded border border-slate-300 p-2"
-      />
+      <input name={name} type={type} required={required} className={input} />
     </label>
   );
 }

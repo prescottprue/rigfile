@@ -1,5 +1,5 @@
 name: "\U0001F4A1 Feature Request"
-description: Suggest a new feature or improvement for Vehicle Work Log
+description: Suggest a new feature or improvement for Crew Chief
 labels: ["enhancement"]
 body:
   - type: markdown

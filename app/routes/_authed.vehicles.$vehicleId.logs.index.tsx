@@ -5,6 +5,8 @@ import {
   useParams,
 } from "@tanstack/react-router";
 
+import { btnPrimary, card } from "~/components/ui";
+
 const logsApi = getRouteApi("/_authed/vehicles/$vehicleId/logs");
 
 export const Route = createFileRoute("/_authed/vehicles/$vehicleId/logs/")({
@@ -18,34 +20,48 @@ function LogsList() {
   const logs = logsApi.useLoaderData();
   return (
     <section>
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-900">Service logs</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-ink">Work history</h2>
         <Link
           to="/vehicles/$vehicleId/logs/new"
           params={{ vehicleId }}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+          className={btnPrimary}
         >
-          Add log
+          + Log work
         </Link>
       </div>
       {logs.length === 0 ? (
-        <p className="mt-6 text-slate-600">No logs yet.</p>
+        <p className="mt-6 text-sm text-ink-muted">
+          Nothing logged yet — hit “Log work” after the next job.
+        </p>
       ) : (
-        <ul className="mt-6 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+        <ul className={`${card} mt-6 divide-y divide-line`}>
           {logs.map((log) => (
-            <li key={log.id} className="p-4">
+            <li key={log.id}>
               <Link
                 to="/vehicles/$vehicleId/logs/$logId"
                 params={{ vehicleId, logId: log.id }}
-                className="block"
+                className="block p-4 hover:bg-sunken"
               >
-                <div className="font-medium text-slate-900">{log.title}</div>
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold text-ink">{log.title}</span>
+                  {log.cost != null ? (
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-ink-muted">
+                      $
+                      {log.cost.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-1 text-xs text-ink-muted">
                   {log.servicedAt.toLocaleDateString()}
                   {log.type ? ` · ${log.type}` : ""}
                   {log.odometer != null
-                    ? ` · ${log.odometer.toLocaleString()} mi`
+                    ? ` · ${Math.round(log.odometer).toLocaleString()} mi`
                     : ""}
+                  {log.authorName ? ` · ${log.authorName}` : ""}
+                  {log.selfService ? " · DIY" : ""}
                 </div>
               </Link>
             </li>

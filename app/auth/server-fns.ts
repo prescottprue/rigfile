@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { claimPendingInvites } from "~/models/member.server";
 import {
   createUser,
   getUserByEmail,
@@ -45,6 +46,7 @@ export const signupFn = createServerFn({ method: "POST" })
       return { error: "A user with this email already exists" };
     }
     const user = await createUser(data.email, data.password);
+    await claimPendingInvites({ userId: user.id, email: user.email });
     const session = await useAppSession();
     await session.update({ userId: user.id });
     return { redirectTo: safeRedirect(data.redirectTo) };
