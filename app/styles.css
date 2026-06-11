@@ -1,1 +1,63 @@
 @import "tailwindcss";
+
+/*
+ * Semantic color tokens. Utilities like `bg-surface` / `text-ink` resolve
+ * these CSS variables at runtime (via @theme inline), so toggling the
+ * `.garage` class on <html> reskins the whole app without a rebuild.
+ *
+ * Garage Mode = high-contrast dark palette + larger base font, tuned for
+ * reading at arm's length under bad shop lighting with greasy thumbs.
+ */
+:root {
+  --app-surface: #f4f5f7;
+  --app-card: #ffffff;
+  --app-sunken: #eceef2;
+  --app-ink: #0f172a;
+  --app-ink-muted: #64748b;
+  --app-line: #e2e8f0;
+  --app-accent: #c2410c; /* safety orange, dark enough for white text */
+  --app-accent-strong: #9a3412;
+  --app-accent-ink: #ffffff;
+  --app-ok: #15803d;
+  --app-warn: #b45309;
+  --app-danger: #dc2626;
+}
+
+.garage {
+  --app-surface: #0c0e11;
+  --app-card: #171a20;
+  --app-sunken: #101216;
+  --app-ink: #f5f6f7;
+  --app-ink-muted: #a3adb8;
+  --app-line: #2b313a;
+  --app-accent: #fb923c; /* brighter orange pops on dark */
+  --app-accent-strong: #f97316;
+  --app-accent-ink: #1c1004; /* near-black text on bright orange */
+  --app-ok: #4ade80;
+  --app-warn: #fbbf24;
+  --app-danger: #f87171;
+}
+
+@theme inline {
+  --color-surface: var(--app-surface);
+  --color-card: var(--app-card);
+  --color-sunken: var(--app-sunken);
+  --color-ink: var(--app-ink);
+  --color-ink-muted: var(--app-ink-muted);
+  --color-line: var(--app-line);
+  --color-accent: var(--app-accent);
+  --color-accent-strong: var(--app-accent-strong);
+  --color-accent-ink: var(--app-accent-ink);
+  --color-ok: var(--app-ok);
+  --color-warn: var(--app-warn);
+  --color-danger: var(--app-danger);
+}
+
+html {
+  background-color: var(--app-surface);
+}
+
+/* Bigger type everywhere in the shop — Tailwind sizes are rem-based. */
+html.garage {
+  font-size: 18px;
+}

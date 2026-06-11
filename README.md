@@ -5,6 +5,24 @@ odometer, cost, and notes per vehicle. Export your whole history as JSON
 whenever you want — and run your own instance on a single `docker run` if you
 don't want to rely on any hosted provider.
 
+What it does today:
+
+- **Work logs** — quick-capture form with tap-to-fill presets (oil change,
+  brake pads, …), odometer/cost, and full-text search.
+- **Crew sharing** — invite someone by email to any vehicle; members see
+  and log everything on shared vehicles (invites for new emails are
+  claimed automatically at signup).
+- **Service reminders** — due by date *and/or* mileage, with recurring
+  intervals (every 5,000 mi / 6 mo). Urgency is computed from the latest
+  logged odometer, and logging the work completes the reminder and rolls
+  it forward.
+- **Projects** — plan bigger builds (e.g. rally prep): parts with prices
+  and links through a proposed → ordered → received → installed pipeline,
+  estimated vs committed budget, and a countdown to a target date.
+- **Garage Mode** — one tap flips the whole app to a high-contrast dark
+  theme with bigger type and fat touch targets, for reading at arm's
+  length under bad shop lighting. Mobile-first throughout.
+
 This repo originally ran on Remix + Fly + Postgres + MinIO. It was rebuilt
 from the ground up in 2026 on a TanStack Start stack targeting Cloudflare
 Workers, with a first-class self-host path that ships as a single Docker
@@ -67,9 +85,12 @@ npm install
 # 2. Start local Postgres (pgvector image, on port 5440)
 npm run docker:dev
 
-# 3. Seed env
+# 3. Seed env — .env feeds Node tooling (drizzle-kit, seed, vitest);
+#    .dev.vars feeds the dev server's SSR, which runs inside workerd via
+#    the Cloudflare vite plugin and can't see your shell env.
 cp .env.example .env
-# (SESSION_SECRET in .env must be ≥ 32 characters)
+cp .env.example .dev.vars
+# (SESSION_SECRET must be ≥ 32 characters; keep both files in sync)
 
 # 4. Run migrations + seed
 npm run db:migrate
@@ -318,6 +339,14 @@ Near-term:
   produces a working `.output/server/index.mjs`
 - Reinstate the `_authed` `beforeLoad` guard once `useSession` works from
   loaders
+
+Near-term, garage edition:
+
+- Photos on work logs (storage layer already handles uploads)
+- Email/push notifications when a reminder goes overdue
+- Fuel tracking (fill-ups double as cheap odometer updates for reminders)
+- Printable maintenance history per vehicle (rally tech-inspection sheet)
+- Event checklists on projects (recurring rally-prep template)
 
 Beyond that:
 

@@ -1,8 +1,10 @@
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createDb } from "~/db/client";
-import { users, vehicles } from "~/db/schema";
+import { users } from "~/db/schema";
 import { createLog, searchLogs } from "~/models/log.server";
+import { createVehicle } from "~/models/vehicle.server";
 
 // Integration test — requires DATABASE_URL pointing at a running local Postgres
 // with migrations applied. Run via: node --env-file=.env npm test
@@ -23,16 +25,19 @@ beforeAll(async () => {
   if (!user) throw new Error("user insert failed");
   userId = user.id;
 
-  const [vehicle] = await db
-    .insert(vehicles)
-    .values({ userId, make: "Test", model: "Vehicle", year: 2020 })
-    .returning();
-  if (!vehicle) throw new Error("vehicle insert failed");
+  // createVehicle (not a raw insert) so the owner membership row exists —
+  // log access is granted via vehicle_members.
+  const vehicle = await createVehicle({
+    userId,
+    make: "Test",
+    model: "Vehicle",
+    year: 2020,
+  });
   vehicleId = vehicle.id;
 });
 
 afterAll(async () => {
-  // Cascade deletes logs + vehicles
+  // Cascade deletes memberships + logs + vehicles
   await db.delete(users).where(eq(users.id, userId));
   await close();
 });
@@ -74,16 +79,12 @@ describe("searchLogs", () => {
       .returning();
     if (!otherUser) throw new Error("other user insert failed");
     try {
-      const [otherVehicle] = await db
-        .insert(vehicles)
-        .values({
-          userId: otherUser.id,
-          make: "Other",
-          model: "Vehicle",
-          year: 2020,
-        })
-        .returning();
-      if (!otherVehicle) throw new Error("other vehicle insert failed");
+      const otherVehicle = await createVehicle({
+        userId: otherUser.id,
+        make: "Other",
+        model: "Vehicle",
+        year: 2020,
+      });
       await createLog({
         userId: otherUser.id,
         vehicleId: otherVehicle.id,
@@ -95,6 +96,19 @@ describe("searchLogs", () => {
       await db.delete(users).where(eq(users.id, otherUser.id));
     }
   });
-});
 
-import { eq } from "drizzle-orm";
+  it("rejects log access on vehicles the user is not a member of", async () => {
+    const [stranger] = await db
+      .insert(users)
+      .values({ email: `stranger-${Date.now()}@example.com` })
+      .returning();
+    if (!stranger) throw new Error("stranger insert failed");
+    try {
+      await expect(
+        createLog({ userId: stranger.id, vehicleId, title: "Drive-by log" }),
+      ).rejects.toThrow("Vehicle not found");
+    } finally {
+      await db.delete(users).where(eq(users.id, stranger.id));
+    }
+  });
+});

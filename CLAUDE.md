@@ -69,8 +69,26 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
   data** and let the client navigate — use `window.location.assign()`
   for auth (forces full reload to pick up session cookie) or
   `useNavigate()` for mutations.
+- **Access is membership-based, not owner-only.** `vehicle_members` grants
+  crew access (roles: `owner` | `member`); every vehicle-scoped model
+  function calls `requireVehicleAccess({ vehicleId, userId })` from
+  `~/models/member.server` (or joins on `vehicle_members`). Owner-only
+  ops (delete vehicle, manage crew) use `requireVehicleOwner`. The
+  vehicle's `userId` column remains the owner. Invites for unknown
+  emails live in `vehicle_invites` and are claimed in `signupFn`.
 - **Ownership checks in queries**: any model function that takes an `id`
-  must scope by `userId` too. See `getVehicle({ id, userId })`.
+  must scope by `userId` (membership) too. See `getVehicle({ id, userId })`.
+- **Semantic color tokens, not raw palette classes** in app UI: use
+  `bg-surface`/`bg-card`/`bg-sunken`, `text-ink`/`text-ink-muted`,
+  `border-line`, `bg-accent`, `text-danger`/`warn`/`ok` (defined via
+  `@theme inline` in `app/styles.css`). Garage Mode toggles a `.garage`
+  class on `<html>` (high-contrast dark + 18px base font) — raw slate/red
+  classes won't reskin. Shared class recipes live in `app/components/ui.ts`.
+- **Dev server env comes from `.dev.vars`**, not the host process env —
+  the Cloudflare vite plugin runs SSR in workerd, which can't see shell
+  exports. Node-side tooling (drizzle-kit, seed, vitest) still reads
+  `DATABASE_URL` from the environment / `.env`. Keep both files in sync
+  (both are gitignored).
 - **Path alias**: `~/*` → `./app/*`.
 - **Biome `useHookAtTopLevel` is disabled for `.server.ts`, `server-fns.ts`,
   and `app/routes/**`** because TanStack Start's `use*`-named helpers are
@@ -97,7 +115,11 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
 4. `app/auth/session.server.ts` — session cookie config + `requireAuth()`
 5. `app/auth/server-fns.ts` — login/signup/logout/currentUser server fns
 6. `app/storage.server.ts` — `Storage` interface + LocalFS + R2 drivers
-7. `app/models/*.server.ts` — the only place that imports from `~/db/client`
+7. `app/models/*.server.ts` — the only place that imports from `~/db/client`;
+   `member.server.ts` (crew/invites/access), `reminder.server.ts`
+   (date+mileage due, recurring roll-forward), `project.server.ts`
+   (builds + parts pipeline; status vocab in `project.shared.ts` because
+   client code can't import values from `.server.ts` modules)
 8. `app/routes/*` — file-based routes, including `/files/$` streaming
    route and `/account/export` JSON bundle endpoint
 9. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, secrets)

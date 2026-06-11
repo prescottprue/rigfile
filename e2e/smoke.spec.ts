@@ -8,10 +8,20 @@ function generateTestEmail() {
 }
 
 const TEST_PASSWORD = "myreallystrongpassword";
-const ERROR_SELECTOR = '[class*="red"]';
+// Error banners are <p> with a bg-danger token (or legacy red on auth pages).
+const ERROR_SELECTOR = 'p[class*="bg-danger"], [class*="bg-red"]';
 
 async function expectNoErrors(page: Page) {
   await expect(page.locator(ERROR_SELECTOR)).not.toBeVisible();
+}
+
+/**
+ * Auth forms submit via JS (createServerFn), so a click before hydration
+ * falls back to a native GET submit and loses the input. Wait for the
+ * network to go idle (dev-server bundles included) before interacting.
+ */
+async function waitForHydration(page: Page) {
+  await page.waitForLoadState("networkidle");
 }
 
 test.describe("smoke tests", () => {
@@ -29,14 +39,19 @@ test.describe("smoke tests", () => {
     await page.goto("/");
     await page.getByRole("link", { name: /sign up/i }).click();
 
+    await waitForHydration(page);
     await page.getByLabel(/email/i).fill(testEmail);
     await page.getByLabel(/password/i).fill(TEST_PASSWORD);
     await page.getByRole("button", { name: /create account/i }).click();
 
     await page.waitForURL("**/vehicles**");
-    await expect(page.getByText(/your vehicles/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /the garage/i }),
+    ).toBeVisible();
     await expectNoErrors(page);
 
+    await waitForHydration(page);
+    await page.getByRole("button", { name: /^[A-Z]$/ }).click();
     await page.getByRole("link", { name: /log out/i }).click();
     await page.waitForURL("**/");
     await expect(
@@ -51,12 +66,15 @@ test.describe("smoke tests", () => {
 
     // Register a new account
     await page.goto("/join");
+    await waitForHydration(page);
     await page.getByLabel(/email/i).fill(testEmail);
     await page.getByLabel(/password/i).fill(TEST_PASSWORD);
     await page.getByRole("button", { name: /create account/i }).click();
     await page.waitForURL("**/vehicles**");
 
-    // Log out
+    // Log out (via the avatar menu)
+    await waitForHydration(page);
+    await page.getByRole("button", { name: /^[A-Z]$/ }).click();
     await page.getByRole("link", { name: /log out/i }).click();
     await page.waitForURL("**/");
 
@@ -67,7 +85,9 @@ test.describe("smoke tests", () => {
     await page.getByRole("button", { name: /sign in/i }).click();
 
     await page.waitForURL("**/vehicles**");
-    await expect(page.getByText(/your vehicles/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /the garage/i }),
+    ).toBeVisible();
     await expectNoErrors(page);
   });
 
@@ -83,6 +103,7 @@ test.describe("smoke tests", () => {
 
     // Register via UI
     await page.goto("/join");
+    await waitForHydration(page);
     await page.getByLabel(/email/i).fill(testEmail);
     await page.getByLabel(/password/i).fill(TEST_PASSWORD);
     await page.getByRole("button", { name: /create account/i }).click();
@@ -90,7 +111,7 @@ test.describe("smoke tests", () => {
     await expectNoErrors(page);
 
     // Empty state
-    await expect(page.getByText(/no vehicles yet/i)).toBeVisible();
+    await expect(page.getByText(/the garage is empty/i)).toBeVisible();
 
     // Create vehicle
     await page.getByRole("link", { name: /add vehicle/i }).click();
@@ -99,30 +120,33 @@ test.describe("smoke tests", () => {
     await page.getByLabel(/year/i).fill(vehicleYear);
     await page.getByRole("button", { name: /save/i }).click();
 
-    // Verify redirect to vehicle detail (no error flash)
+    // Verify redirect to the vehicle dashboard (no error flash)
     await page.waitForURL("**/vehicles/**");
     await expectNoErrors(page);
-    await page.getByRole("link", { name: /view service logs/i }).click();
+    await page.getByRole("link", { name: /^logs$/i }).click();
 
     // Logs empty state
-    await expect(page.getByText(/no logs yet/i)).toBeVisible();
+    await expect(page.getByText(/nothing logged yet/i)).toBeVisible();
 
-    // Create log
-    await page.getByRole("link", { name: /add log/i }).click();
+    // Create log via quick capture
+    await page.getByRole("link", { name: /log work/i }).click();
     await page.getByLabel(/title/i).fill(logTitle);
     await page.getByLabel(/notes/i).fill(logNotes);
-    await page.getByRole("button", { name: /save log/i }).click();
+    await page.getByRole("button", { name: /save it/i }).click();
 
-    // Verify log detail (no error flash)
+    // Saving lands on the dashboard with the log in "Recent work"
     await expect(page.getByText(logTitle)).toBeVisible();
-    await expect(page.getByText(logNotes)).toBeVisible();
     await expectNoErrors(page);
+
+    // Open the log detail and verify notes
+    await page.getByRole("link", { name: logTitle }).click();
+    await expect(page.getByText(logNotes)).toBeVisible();
 
     // Delete log (confirm dialog fires on click)
     page.on("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: /delete/i }).click();
 
     // Verify empty state again
-    await expect(page.getByText(/no logs yet/i)).toBeVisible();
+    await expect(page.getByText(/nothing logged yet/i)).toBeVisible();
   });
 });

@@ -117,6 +117,131 @@ export const logs = pgTable(
   ],
 );
 
+// Crew: users who share access to a vehicle. The vehicle's `userId` column
+// remains the owner; members get full read/write on logs, reminders, and
+// projects but cannot delete the vehicle or manage the crew.
+export const vehicleMembers = pgTable(
+  "vehicle_members",
+  {
+    vehicleId: text("vehicle_id")
+      .notNull()
+      .references(() => vehicles.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    role: text().notNull().default("member"), // "owner" | "member"
+    ...timestamps,
+  },
+  (t) => [
+    primaryKey({ columns: [t.vehicleId, t.userId] }),
+    index("vehicle_members_user_idx").on(t.userId),
+  ],
+);
+
+// Pending crew invites for emails that don't have an account yet. Claimed
+// (converted to a membership) on signup; emails are stored lowercased.
+export const vehicleInvites = pgTable(
+  "vehicle_invites",
+  {
+    id: cuid2().primaryKey(),
+    vehicleId: text("vehicle_id")
+      .notNull()
+      .references(() => vehicles.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    email: text().notNull(),
+    invitedById: text("invited_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("vehicle_invites_vehicle_email_idx").on(t.vehicleId, t.email),
+    index("vehicle_invites_email_idx").on(t.email),
+  ],
+);
+
+// Service reminders. Due by date and/or mileage (either may be null). When
+// intervalMonths/intervalMiles are set the reminder recurs: completing it
+// advances the due date/miles instead of setting completedAt.
+export const reminders = pgTable(
+  "reminders",
+  {
+    id: cuid2().primaryKey(),
+    vehicleId: text("vehicle_id")
+      .notNull()
+      .references(() => vehicles.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    title: text().notNull(),
+    notes: text(),
+    dueDate: timestamp("due_date", { withTimezone: true, mode: "date" }),
+    dueMiles: doublePrecision("due_miles"),
+    intervalMonths: integer("interval_months"),
+    intervalMiles: doublePrecision("interval_miles"),
+    completedAt: timestamp("completed_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    createdById: text("created_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    ...timestamps,
+  },
+  (t) => [index("reminders_vehicle_idx").on(t.vehicleId)],
+);
+
+// Planned work — e.g. a rally-prep build. Items track parts through a
+// proposed → ordered → received → installed pipeline with prices.
+export const projects = pgTable(
+  "projects",
+  {
+    id: cuid2().primaryKey(),
+    vehicleId: text("vehicle_id")
+      .notNull()
+      .references(() => vehicles.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    title: text().notNull(),
+    description: text(),
+    status: text().notNull().default("idea"), // "idea" | "planned" | "in_progress" | "done"
+    targetDate: timestamp("target_date", { withTimezone: true, mode: "date" }),
+    createdById: text("created_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    ...timestamps,
+  },
+  (t) => [index("projects_vehicle_idx").on(t.vehicleId)],
+);
+
+export const projectItems = pgTable(
+  "project_items",
+  {
+    id: cuid2().primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    name: text().notNull(),
+    url: text(),
+    price: doublePrecision(),
+    quantity: integer().notNull().default(1),
+    status: text().notNull().default("proposed"), // "proposed" | "ordered" | "received" | "installed"
+    notes: text(),
+    ...timestamps,
+  },
+  (t) => [index("project_items_project_idx").on(t.projectId)],
+);
+
 export const tags = pgTable(
   "tags",
   {
@@ -170,3 +295,11 @@ export type NewLog = typeof logs.$inferInsert;
 export type Mechanic = typeof mechanics.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type Part = typeof parts.$inferSelect;
+export type VehicleMember = typeof vehicleMembers.$inferSelect;
+export type VehicleInvite = typeof vehicleInvites.$inferSelect;
+export type Reminder = typeof reminders.$inferSelect;
+export type NewReminder = typeof reminders.$inferInsert;
+export type Project = typeof projects.$inferSelect;
+export type NewProject = typeof projects.$inferInsert;
+export type ProjectItem = typeof projectItems.$inferSelect;
+export type NewProjectItem = typeof projectItems.$inferInsert;
