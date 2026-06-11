@@ -28,7 +28,17 @@ export default defineConfig({
     }),
     viteReact(),
     tailwindcss(),
-    useNitro ? nitro() : cloudflare({ viteEnvironment: { name: "ssr" } }),
+    useNitro
+      ? nitro()
+      : cloudflare({
+          viteEnvironment: { name: "ssr" },
+          // The Workers AI binding is remote-only (no local simulator) and a
+          // remote proxy session requires `wrangler login`. Keep dev bootable
+          // without a Cloudflare account: remote bindings are opt-in via
+          // CF_REMOTE_BINDINGS=1. Without it, in-app scans use the local
+          // Ollama fallback (see app/scan/extract.server.ts).
+          remoteBindings: process.env.CF_REMOTE_BINDINGS === "1",
+        }),
   ],
   environments: {
     ssr: {

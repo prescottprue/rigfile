@@ -117,7 +117,9 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    adding CREATE EXTENSION-style ops that Drizzle can't infer)
 4. `app/auth/session.server.ts` — session cookie config + `requireAuth()`
 5. `app/auth/server-fns.ts` — login/signup/logout/currentUser server fns
-6. `app/storage.server.ts` — `Storage` interface + LocalFS + R2 drivers
+6. `app/storage.server.ts` — `Storage` interface + LocalFS + R2 drivers;
+   `getStorage()` auto-resolves the R2 `UPLOADS` binding on Workers (lazy,
+   via `cloudflare:workers`), LocalFS elsewhere
 7. `app/models/*.server.ts` — the only place that imports from `~/db/client`;
    `member.server.ts` (crew/invites/access), `reminder.server.ts`
    (date+mileage due, recurring roll-forward), `project.server.ts`
@@ -125,12 +127,19 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    client code can't import values from `.server.ts` modules),
    `attachment.server.ts` (log attachments — uploads via storage layer +
    row insert, access checked against the log's vehicle)
-8. `app/scan/receipt.ts` — Scan Bay's isomorphic extraction contract (JSON
-   schema + prompt + `normalizeReceipt`/`receiptToNotes`), shared by the CLI
-   and the future Workers AI path. CLI lives in `scripts/scan-bay/`.
+8. `app/scan/` — Scan Bay. `receipt.ts` is the isomorphic extraction
+   contract (JSON schema + prompt + `normalizeReceipt`/`receiptToNotes`);
+   `extract.server.ts` is the runtime seam (Workers AI binding on CF,
+   Ollama fallback on Node — `ollama.server.ts`); `import.server.ts` is
+   `createLogWithScan` (log + attachment + optional reminder), shared by
+   the batch CLI (`scripts/scan-bay/`) and the in-app scan page.
 9. `app/routes/*` — file-based routes, including `/files/$` streaming
-   route and `/account/export` JSON bundle endpoint
-10. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, secrets)
+   route, `/account/export` JSON bundle endpoint, and
+   `_authed.vehicles.$vehicleId.scan.tsx` (in-app receipt scan)
+10. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, Workers
+    AI, secrets). The `ai` binding is remote-only; dev keeps remote
+    bindings OFF unless `CF_REMOTE_BINDINGS=1` (see vite.config.ts), so
+    `npm run dev` never requires `wrangler login`.
 11. `drizzle.config.ts` — Drizzle Kit config
 12. `tsr.config.json` — TanStack Router CLI config; drives
     `app/routeTree.gen.ts` generation (the file is gitignored, so
@@ -191,9 +200,15 @@ including a backlog of paper shop invoices.
   imported entries are stamped with their logId. The extraction prompt +
   schema + normalizer live in `app/scan/receipt.ts` (isomorphic, so phase 2
   reuses them). Attachments render on the log detail page.
-- **Phase 2 (TODO) — in-app one-off scans:** same `app/scan/receipt.ts`
-  contract via the Cloudflare Workers AI binding (free tier) so phone
-  captures work without the Mac.
+- **Phase 2 (DONE) — in-app one-off scans:** `/vehicles/$vehicleId/scan`
+  (📷 button on the vehicle dashboard + logs list). Phone camera capture →
+  client-side downscale (~1600px JPEG) → `extractReceiptScan()` in
+  `app/scan/extract.server.ts` (Workers AI `@cf/meta/llama-3.2-11b-vision-
+  instruct` w/ `response_format` json_schema on CF; Ollama fallback on
+  Node/dev) → editable prefilled form → `createLogWithScan()` saves log +
+  attaches the photo + optionally drafts a reminder from `recommendedWork`.
+  Extraction failures degrade gracefully: the form opens blank and the
+  photo still attaches on save.
 - Deliberately NOT the Anthropic API — cost. Don't suggest it for this.
 
 ### 2. Crew Chief MCP server

@@ -279,6 +279,13 @@ function VehicleDashboard() {
         >
           🔧 Log work
         </Link>
+        <Link
+          to="/vehicles/$vehicleId/scan"
+          params={{ vehicleId: v.id }}
+          className={`${btnSecondary} flex-1 py-4 text-lg sm:flex-none sm:px-6`}
+        >
+          📷 Scan receipt
+        </Link>
         <div className={`${card} flex items-center gap-3 px-5 py-3`}>
           <span className="text-xs font-bold uppercase tracking-wide text-ink-muted">
             Odometer

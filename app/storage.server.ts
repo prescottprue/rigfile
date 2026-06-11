@@ -116,16 +116,57 @@ class R2Storage implements Storage {
   }
 }
 
+/**
+ * Runtime-aware driver that resolves lazily on first use: the R2 `UPLOADS`
+ * binding when running on Workers (looked up via `cloudflare:workers`, same
+ * trick as `getDb()`), the local filesystem otherwise. Lazy because binding
+ * lookup is async while `getStorage()` callers expect a sync return — the
+ * `Storage` methods are all async anyway, so the await hides in them.
+ */
+class RuntimeStorage implements Storage {
+  private driver: Promise<Storage> | undefined;
+
+  private resolveDriver(): Promise<Storage> {
+    this.driver ??= (async () => {
+      const cfModuleId = "cloudflare" + ":workers";
+      // biome-ignore lint/suspicious/noExplicitAny: cross-runtime env shape
+      const cf: any = await import(/* @vite-ignore */ cfModuleId).catch(
+        () => null,
+      );
+      const bucket = cf?.env?.UPLOADS as R2Bucket | undefined;
+      if (bucket) return new R2Storage(bucket);
+      const root = resolve(process.env.UPLOADS_DIR ?? "./data/uploads");
+      return new LocalFilesystemStorage(root);
+    })();
+    return this.driver;
+  }
+
+  async upload(
+    key: string,
+    body: Uint8Array | ArrayBuffer,
+    contentType: string,
+  ): Promise<void> {
+    return (await this.resolveDriver()).upload(key, body, contentType);
+  }
+
+  async read(key: string): Promise<StoredFile | null> {
+    return (await this.resolveDriver()).read(key);
+  }
+
+  async exists(key: string): Promise<boolean> {
+    return (await this.resolveDriver()).exists(key);
+  }
+}
+
 let _singleton: Storage | undefined;
 
 /**
- * Pick the storage driver based on runtime. On CF, the caller can pass an R2
- * binding explicitly. On Node, reads UPLOADS_DIR from the env.
+ * Pick the storage driver based on runtime. On Workers the R2 `UPLOADS`
+ * binding is auto-detected (or passed explicitly); on Node, files land under
+ * UPLOADS_DIR.
  */
 export function getStorage(r2?: R2Bucket): Storage {
   if (r2) return new R2Storage(r2);
-  if (_singleton) return _singleton;
-  const root = resolve(process.env.UPLOADS_DIR ?? "./data/uploads");
-  _singleton = new LocalFilesystemStorage(root);
+  _singleton ??= new RuntimeStorage();
   return _singleton;
 }

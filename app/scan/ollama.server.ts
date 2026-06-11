@@ -4,7 +4,10 @@
  * Deliberately NOT the Anthropic API: this runs against a local vision model
  * (default `qwen3-vl:8b`) so digitizing Scott's paper invoice backlog costs
  * $0. The schema + prompt come from the shared `~/scan/receipt` contract so
- * the in-app Workers AI path can extract identically later.
+ * the in-app Workers AI path extracts identically.
+ *
+ * Used by both the batch CLI (`scripts/scan-bay/`) and, on Node self-host,
+ * the in-app one-off scan fallback (`~/scan/extract.server`).
  */
 
 import { Buffer } from "node:buffer";
@@ -14,7 +17,7 @@ import {
   type ExtractedReceipt,
   normalizeReceipt,
   RECEIPT_JSON_SCHEMA,
-} from "~/scan/receipt.ts";
+} from "~/scan/receipt";
 
 export type OllamaConfig = {
   host: string;

@@ -5,7 +5,7 @@ import {
   useParams,
 } from "@tanstack/react-router";
 
-import { btnPrimary, card } from "~/components/ui";
+import { btnPrimary, btnSecondary, card } from "~/components/ui";
 
 const logsApi = getRouteApi("/_authed/vehicles/$vehicleId/logs");
 
@@ -22,13 +22,22 @@ function LogsList() {
     <section>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-ink">Work history</h2>
-        <Link
-          to="/vehicles/$vehicleId/logs/new"
-          params={{ vehicleId }}
-          className={btnPrimary}
-        >
-          + Log work
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to="/vehicles/$vehicleId/scan"
+            params={{ vehicleId }}
+            className={btnSecondary}
+          >
+            📷 Scan
+          </Link>
+          <Link
+            to="/vehicles/$vehicleId/logs/new"
+            params={{ vehicleId }}
+            className={btnPrimary}
+          >
+            + Log work
+          </Link>
+        </div>
       </div>
       {logs.length === 0 ? (
         <p className="mt-6 text-sm text-ink-muted">

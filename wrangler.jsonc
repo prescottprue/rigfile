@@ -28,7 +28,17 @@
       "bucket_name": "vehicle-work-log-prod-uploads",
       "binding": "UPLOADS"
     }
-  ]
+  ],
+  // Workers AI powers in-app receipt scans (Scan Bay phase 2). The default
+  // vision model lives in app/scan/extract.server.ts; set a SCAN_MODEL var
+  // to override without a deploy. There is no local simulator, so the
+  // binding is remote-only — in dev it stays OFF unless you opt in with
+  // CF_REMOTE_BINDINGS=1 (requires `wrangler login`); without it, in-app
+  // scans fall back to local Ollama, same as the batch CLI.
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  }
   // SESSION_SECRET is a Wrangler secret. Set with:
   //   wrangler secret put SESSION_SECRET
 }

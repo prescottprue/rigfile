@@ -20,9 +20,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "~/db/client";
 import { vehicles } from "~/db/schema";
-import { addLogAttachment } from "~/models/attachment.server.ts";
-import { createLog } from "~/models/log.server.ts";
-import { createReminder } from "~/models/reminder.server.ts";
+import { createLogWithScan } from "~/scan/import.server.ts";
 import { receiptToNotes } from "~/scan/receipt.ts";
 import { contentTypeFor, type ReviewFile } from "./review.ts";
 
@@ -90,42 +88,36 @@ async function main() {
     }
     const r = entry.extracted;
 
-    const log = await createLog({
-      userId,
-      vehicleId: args.vehicleId,
-      title: r.suggestedTitle,
-      notes: receiptToNotes(r) || null,
-      type: null,
-      cost: r.totalCost,
-      odometer: r.odometer,
-      servicedAt: r.serviceDate ? new Date(r.serviceDate) : new Date(),
-      selfService: false,
-    });
-
-    // Store the original scan alongside the log.
     const scanPath = resolve(reviewDir, entry.file);
     const contentType =
       contentTypeFor(entry.file) ?? "application/octet-stream";
     const bytes = await readFile(scanPath);
-    await addLogAttachment({
-      logId: log.id,
-      vehicleId: args.vehicleId,
-      userId,
-      body: new Uint8Array(bytes),
-      contentType,
-      originalName: entry.file,
-      kind: "scan",
-    });
 
-    // Draft a reminder from the tech's recommended-work note.
-    if (args.reminders && r.recommendedWork) {
-      await createReminder({
-        userId,
-        vehicleId: args.vehicleId,
-        title: `Follow-up: ${r.suggestedTitle}`,
-        notes: r.recommendedWork,
-      });
-    }
+    const { log } = await createLogWithScan({
+      userId,
+      vehicleId: args.vehicleId,
+      log: {
+        title: r.suggestedTitle,
+        notes: receiptToNotes(r) || null,
+        type: null,
+        cost: r.totalCost,
+        odometer: r.odometer,
+        servicedAt: r.serviceDate ? new Date(r.serviceDate) : new Date(),
+        selfService: false,
+      },
+      scan: {
+        body: new Uint8Array(bytes),
+        contentType,
+        originalName: entry.file,
+      },
+      reminder:
+        args.reminders && r.recommendedWork
+          ? {
+              title: `Follow-up: ${r.suggestedTitle}`,
+              notes: r.recommendedWork,
+            }
+          : null,
+    });
 
     entry.status = "imported";
     entry.logId = log.id;
