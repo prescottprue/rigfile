@@ -32,7 +32,7 @@
     "@tanstack/react-router": "1.168.23",
     "@tanstack/react-start": "1.167.42",
     "bcryptjs": "^3.0.0",
-    "drizzle-orm": "^0.44.0",
+    "drizzle-orm": "^0.45.0",
     "postgres": "^3.4.5",
     "prom-client": "^15.1.3",
     "react": "^19.0.0",
