@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 export type StoredFile = {
@@ -15,6 +15,8 @@ export interface Storage {
   ): Promise<void>;
   read(key: string): Promise<StoredFile | null>;
   exists(key: string): Promise<boolean>;
+  /** Remove the stored bytes. Deleting a missing key is a no-op. */
+  delete(key: string): Promise<void>;
 }
 
 /**
@@ -70,6 +72,12 @@ class LocalFilesystemStorage implements Storage {
       return false;
     }
   }
+
+  async delete(key: string): Promise<void> {
+    const path = this.absolute(key);
+    await unlink(path).catch(() => {});
+    await unlink(`${path}.meta.json`).catch(() => {});
+  }
 }
 
 /**
@@ -88,6 +96,7 @@ type R2Bucket = {
   ): Promise<unknown>;
   get(key: string): Promise<R2Object | null>;
   head(key: string): Promise<unknown>;
+  delete(key: string): Promise<void>;
 };
 
 class R2Storage implements Storage {
@@ -113,6 +122,10 @@ class R2Storage implements Storage {
 
   async exists(key: string): Promise<boolean> {
     return (await this.bucket.head(key)) !== null;
+  }
+
+  async delete(key: string): Promise<void> {
+    await this.bucket.delete(key);
   }
 }
 
@@ -155,6 +168,10 @@ class RuntimeStorage implements Storage {
 
   async exists(key: string): Promise<boolean> {
     return (await this.resolveDriver()).exists(key);
+  }
+
+  async delete(key: string): Promise<void> {
+    return (await this.resolveDriver()).delete(key);
   }
 }
 

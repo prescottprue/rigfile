@@ -3,7 +3,9 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "~/db/client";
 import type { Log, NewLog } from "~/db/schema";
 import { logs, users, vehicleMembers } from "~/db/schema";
+import { deleteAttachmentBlobsForLogs } from "~/models/attachment.server";
 import { requireVehicleAccess } from "~/models/member.server";
+import type { Storage } from "~/storage.server";
 
 export type { Log };
 
@@ -87,8 +89,18 @@ export async function deleteLog({
   id,
   userId,
   vehicleId,
-}: Pick<Log, "id" | "userId" | "vehicleId">) {
+  storage,
+}: Pick<Log, "id" | "userId" | "vehicleId"> & {
+  /** Override the storage driver (tests). */
+  storage?: Storage;
+}) {
   await requireVehicleAccess({ vehicleId, userId });
+  // Reap stored attachment bytes first — the row cascade only removes the
+  // DB side, and once the log row is gone the paths are unreachable.
+  await deleteAttachmentBlobsForLogs({
+    logIds: [id],
+    ...(storage ? { storage } : {}),
+  });
   const db = await getDb();
   return db
     .delete(logs)
