@@ -19,11 +19,13 @@ import {
 } from "~/scan/receipt";
 
 /**
- * Vision model on Workers AI that supports both image input and JSON mode.
- * Override with a `SCAN_MODEL` Workers var (wrangler.jsonc `vars` or the
- * dashboard) — no deploy needed to swap models.
+ * Vision model on Workers AI. Llama 4 Scout, verified live (2026-06): it
+ * honors json_schema on busy multi-line-item receipts where
+ * llama-3.2-11b-vision silently dropped to prose. Override with a
+ * `SCAN_MODEL` Workers var (wrangler.jsonc `vars` or the dashboard) — no
+ * deploy needed to swap models.
  */
-const DEFAULT_WORKERS_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
+const DEFAULT_WORKERS_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 
 type WorkersAi = {
   run(model: string, input: Record<string, unknown>): Promise<unknown>;
@@ -108,6 +110,31 @@ export function isLicenseAgreementError(err: unknown): boolean {
   return /\b5016\b|prompt 'agree'|submit(?:ting)? 'agree'/i.test(message);
 }
 
+/** The raw text payload of an `env.AI.run` result, or null if not textual. */
+function workersAiResponseText(result: unknown): string | null {
+  const r = (result && typeof result === "object" ? result : {}) as Record<
+    string,
+    unknown
+  >;
+  let payload: unknown = r.response;
+  if (payload == null && Array.isArray(r.choices)) {
+    const first = r.choices[0] as
+      | { message?: { content?: unknown } }
+      | undefined;
+    payload = first?.message?.content;
+  }
+  if (payload != null && typeof payload === "object") {
+    const inner = (payload as Record<string, unknown>).content;
+    if (typeof inner === "string") payload = inner;
+  }
+  return typeof payload === "string" ? payload : null;
+}
+
+const RESPONSE_FORMAT = {
+  type: "json_schema",
+  json_schema: RECEIPT_JSON_SCHEMA,
+};
+
 async function runWorkersAiExtraction(
   workersAi: { ai: WorkersAi; model: string },
   image: Uint8Array,
@@ -134,16 +161,45 @@ async function runWorkersAiExtraction(
         ],
       },
     ],
-    response_format: {
-      type: "json_schema",
-      json_schema: RECEIPT_JSON_SCHEMA,
-    },
+    response_format: RESPONSE_FORMAT,
     temperature: 0,
     // Generous headroom — a long line-itemed invoice that gets truncated
     // mid-JSON reads as "did not return valid JSON" to the parser.
     max_tokens: 2048,
   });
-  return normalizeReceipt(parseWorkersAiResponse(result));
+
+  try {
+    return normalizeReceipt(parseWorkersAiResponse(result));
+  } catch (parseErr) {
+    // Vision models sometimes ignore response_format on busy images and
+    // answer in prose — but the prose usually contains everything we asked
+    // for. Run a text-only structuring pass, where JSON mode is reliable.
+    const prose = workersAiResponseText(result);
+    if (!prose) throw parseErr;
+    // Surfaces in `wrangler tail` / Workers Logs for diagnosis.
+    console.warn(
+      `scan: vision response was not JSON, restructuring (${prose.length} chars): ` +
+        prose.slice(0, 300),
+    );
+    const structured = await workersAi.ai.run(workersAi.model, {
+      messages: [
+        {
+          role: "user",
+          content:
+            "Below is data extracted from an auto-shop receipt. Convert it " +
+            "to a JSON object with fields: shopName, shopLocation, " +
+            "invoiceNumber, serviceDate (YYYY-MM-DD), vehicle, odometer, " +
+            "totalCost, lineItems (description/quantity/total), " +
+            "suggestedTitle, recommendedWork. Use null for anything " +
+            `missing. Respond with only the JSON object.\n\n${prose}`,
+        },
+      ],
+      response_format: RESPONSE_FORMAT,
+      temperature: 0,
+      max_tokens: 2048,
+    });
+    return normalizeReceipt(parseWorkersAiResponse(structured));
+  }
 }
 
 /**
