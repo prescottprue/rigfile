@@ -9,13 +9,25 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { requireAuth } from "~/auth/session.server";
 import { card } from "~/components/ui";
+import { listLogAttachments } from "~/models/attachment.server";
 import { deleteLog, getLog } from "~/models/log.server";
 
 const loadLogFn = createServerFn({ method: "GET" })
   .inputValidator((input: { vehicleId: string; logId: string }) => input)
   .handler(async ({ data }) => {
     const userId = await requireAuth();
-    return getLog({ id: data.logId, userId, vehicleId: data.vehicleId });
+    const log = await getLog({
+      id: data.logId,
+      userId,
+      vehicleId: data.vehicleId,
+    });
+    if (!log) return null;
+    const attachments = await listLogAttachments({
+      logId: data.logId,
+      vehicleId: data.vehicleId,
+      userId,
+    });
+    return { ...log, attachments };
   });
 
 const deleteLogFn = createServerFn({ method: "POST" })
@@ -101,6 +113,42 @@ function LogDetail() {
           </dd>
         </div>
       </dl>
+      {log.attachments.length > 0 ? (
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-ink-muted">
+            Scans & attachments
+          </h3>
+          <ul className="mt-2 flex flex-wrap gap-3">
+            {log.attachments.map((att) => {
+              const href = `/files/${att.path}`;
+              const isImage = att.contentType.startsWith("image/");
+              return (
+                <li key={att.id}>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`${card} block overflow-hidden transition-colors hover:bg-sunken`}
+                    title={att.originalName ?? "Attachment"}
+                  >
+                    {isImage ? (
+                      <img
+                        src={href}
+                        alt={att.originalName ?? "Scan"}
+                        className="h-32 w-32 object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-32 w-32 items-center justify-center text-4xl">
+                        📄
+                      </span>
+                    )}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

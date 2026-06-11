@@ -117,6 +117,8 @@ npm run db:generate    # drizzle-kit generate (after schema changes)
 npm run db:migrate     # apply pending migrations
 npm run db:studio      # drizzle-kit studio
 npm run validate       # typecheck + lint + test (CI equivalent)
+npm run scan:extract -- <folder>          # Scan Bay: scans → review JSON
+npm run scan:import  -- <review.json> --vehicle <id>   # review JSON → logs
 ```
 
 ## Self-hosting
@@ -327,6 +329,43 @@ out of the client bundle.
 `schemaVersion` gives future importers a hook to evolve the format without
 breaking old bundles.
 
+## Scan Bay — digitizing paper records
+
+A big part of Crew Chief is getting a backlog of paper shop invoices into the
+app. Scan Bay does that locally, for **$0** — it runs a vision model on your own
+machine (Ollama + `qwen3-vl:8b` by default), so the receipts never leave your
+laptop and there's no per-page API cost.
+
+It's a two-step CLI with a human review in the middle:
+
+```sh
+# 1. Extract — read every image in a folder, write a review file
+npm run scan:extract -- ~/Desktop/jeep-receipts
+#   → ~/Desktop/jeep-receipts/scan-review.json
+
+# 2. Eyeball scan-review.json — fix a misread date, flip an entry's
+#    "status" to "skip" to exclude it. Then import:
+npm run scan:import -- ~/Desktop/jeep-receipts/scan-review.json \
+  --vehicle <vehicleId> --reminders
+```
+
+Each imported invoice becomes a work log (title, cost, odometer, service date,
+line items in the notes) with the **original scan stored as an attachment** on
+the log. `--reminders` also drafts a follow-up reminder from any recommended
+work the tech noted ("front pads at 5mm, replace in ~5k mi").
+
+Notes:
+
+- Requires [Ollama](https://ollama.com) running locally with a vision model:
+  `ollama pull qwen3-vl:8b`. Override with `OLLAMA_HOST` / `SCAN_MODEL`.
+- `import` is idempotent — entries are stamped `imported` with their log id,
+  so re-running the same review file is safe.
+- `--vehicle` targets the vehicle; the acting user defaults to that vehicle's
+  owner (override with `--user`). All writes go through the model layer, so
+  crew-access checks apply.
+- The extraction prompt + JSON schema live in `app/scan/receipt.ts`, shared so
+  the planned in-app one-off scan (Cloudflare Workers AI) extracts identically.
+
 ## Roadmap
 
 Near-term:
@@ -344,7 +383,11 @@ Near-term:
 
 Near-term, garage edition:
 
-- Photos on work logs (storage layer already handles uploads)
+- Scan Bay phase 2: in-app one-off scans via the Cloudflare Workers AI binding
+  (free tier) so phone captures work without the Mac — reuses
+  `app/scan/receipt.ts`
+- Photos on work logs (storage layer already handles uploads; the
+  `log_attachments` table from Scan Bay backs this)
 - Email/push notifications when a reminder goes overdue
 - Fuel tracking (fill-ups double as cheap odometer updates for reminders)
 - Printable maintenance history per vehicle (rally tech-inspection sheet)

@@ -242,6 +242,25 @@ export const projectItems = pgTable(
   (t) => [index("project_items_project_idx").on(t.projectId)],
 );
 
+// Files attached to a log — primarily the original scanned shop invoice
+// ingested by Scan Bay, but also phone photos or PDFs. `path` is a storage
+// key (see app/storage.server.ts); `kind` distinguishes provenance.
+export const logAttachments = pgTable(
+  "log_attachments",
+  {
+    id: cuid2().primaryKey(),
+    logId: text("log_id")
+      .notNull()
+      .references(() => logs.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    path: text().notNull(),
+    contentType: text("content_type").notNull(),
+    originalName: text("original_name"),
+    kind: text().notNull().default("scan"), // "scan" | "photo" | "doc"
+    ...timestamps,
+  },
+  (t) => [index("log_attachments_log_idx").on(t.logId)],
+);
+
 export const tags = pgTable(
   "tags",
   {
@@ -303,3 +322,5 @@ export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type ProjectItem = typeof projectItems.$inferSelect;
 export type NewProjectItem = typeof projectItems.$inferInsert;
+export type LogAttachment = typeof logAttachments.$inferSelect;
+export type NewLogAttachment = typeof logAttachments.$inferInsert;
