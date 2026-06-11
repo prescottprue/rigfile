@@ -77,6 +77,8 @@ const saveScanFn = createServerFn({ method: "POST" })
 
     const notes = String(data.get("notes") ?? "").trim() || null;
     const type = String(data.get("type") ?? "").trim() || null;
+    const shopName = String(data.get("shopName") ?? "").trim();
+    const shopLocation = String(data.get("shopLocation") ?? "").trim() || null;
     const reminderNotes =
       String(data.get("reminderNotes") ?? "").trim() || null;
     const draftReminder = data.get("draftReminder") === "on" && reminderNotes;
@@ -100,6 +102,7 @@ const saveScanFn = createServerFn({ method: "POST" })
           : servicedAt,
         selfService: data.get("selfService") === "on",
       },
+      vendor: shopName ? { name: shopName, location: shopLocation } : null,
       scan: {
         body: new Uint8Array(await checked.file.arrayBuffer()),
         contentType: checked.file.type,
@@ -173,6 +176,8 @@ function ScanReceipt() {
   const [odometer, setOdometer] = useState("");
   const [servicedAt, setServicedAt] = useState("");
   const [type, setType] = useState("");
+  const [shopName, setShopName] = useState("");
+  const [shopLocation, setShopLocation] = useState("");
   const [recommendedWork, setRecommendedWork] = useState<string | null>(null);
 
   function applyReceipt(receipt: ExtractedReceipt) {
@@ -181,6 +186,8 @@ function ScanReceipt() {
     setCost(receipt.totalCost != null ? String(receipt.totalCost) : "");
     setOdometer(receipt.odometer != null ? String(receipt.odometer) : "");
     setServicedAt(receipt.serviceDate ?? "");
+    setShopName(receipt.shopName ?? "");
+    setShopLocation(receipt.shopLocation ?? "");
     setRecommendedWork(receipt.recommendedWork);
   }
 
@@ -225,6 +232,8 @@ function ScanReceipt() {
     formData.set("title", title);
     formData.set("type", type);
     formData.set("notes", notes);
+    formData.set("shopName", shopName);
+    formData.set("shopLocation", shopLocation);
     try {
       const result = await saveScanFn({ data: formData });
       if (result && "error" in result && result.error) {
@@ -400,6 +409,16 @@ function ScanReceipt() {
               onChange={(e) => setNotes(e.target.value)}
               rows={6}
               className={textarea}
+            />
+          </label>
+
+          <label className={label}>
+            Shop — filter your history by vendor later
+            <input
+              value={shopName}
+              onChange={(e) => setShopName(e.target.value)}
+              placeholder="Desert 4x4 Service Center"
+              className={input}
             />
           </label>
 

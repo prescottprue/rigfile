@@ -17,6 +17,7 @@ import {
   textarea,
 } from "~/components/ui";
 import { createLog } from "~/models/log.server";
+import { findOrCreateMechanic } from "~/models/mechanic.server";
 import { completeReminder, getReminder } from "~/models/reminder.server";
 
 // Tap-to-fill presets so common jobs don't need typing in the shop.
@@ -69,6 +70,11 @@ const createLogFn = createServerFn({ method: "POST" })
     const odometer = odometerRaw ? Number.parseFloat(odometerRaw) : null;
     const servicedAt = servicedAtRaw ? new Date(servicedAtRaw) : new Date();
 
+    const shopName = String(data.get("shopName") ?? "").trim();
+    const mechanic = shopName
+      ? await findOrCreateMechanic({ name: shopName })
+      : null;
+
     const log = await createLog({
       userId,
       vehicleId,
@@ -79,6 +85,7 @@ const createLogFn = createServerFn({ method: "POST" })
       odometer,
       servicedAt,
       selfService,
+      mechanicId: mechanic?.id ?? null,
     });
 
     // Logging the work knocks out the reminder that prompted it —
@@ -230,6 +237,15 @@ function NewLog() {
         <label className={label}>
           Notes — torque specs, part numbers, what you'd do differently
           <textarea name="notes" rows={4} className={textarea} />
+        </label>
+
+        <label className={label}>
+          Shop (if not DIY) — filter your history by vendor later
+          <input
+            name="shopName"
+            placeholder="Desert 4x4 Service Center"
+            className={input}
+          />
         </label>
 
         <div className="grid grid-cols-2 items-end gap-3">

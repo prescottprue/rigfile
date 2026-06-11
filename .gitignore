@@ -35,3 +35,5 @@ playwright/.cache
 .idea/
 
 docs/superpowers
+# TanStack Router codegen scratch
+.tanstack/

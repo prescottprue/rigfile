@@ -126,7 +126,9 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    (builds + parts pipeline; status vocab in `project.shared.ts` because
    client code can't import values from `.server.ts` modules),
    `attachment.server.ts` (log attachments — uploads via storage layer +
-   row insert, access checked against the log's vehicle)
+   row insert, access checked against the log's vehicle),
+   `mechanic.server.ts` (vendors/shops — case-insensitive find-or-create;
+   logs link via `logs.mechanicId`, the logs list filters by vendor)
 8. `app/scan/` — Scan Bay. `receipt.ts` is the isomorphic extraction
    contract (JSON schema + prompt + `normalizeReceipt`/`receiptToNotes`);
    `extract.server.ts` is the runtime seam (Workers AI binding on CF,

@@ -2,7 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 import { getDb } from "~/db/client";
 import type { Log, NewLog } from "~/db/schema";
-import { logs, users, vehicleMembers } from "~/db/schema";
+import { logs, mechanics, users, vehicleMembers } from "~/db/schema";
 import { deleteAttachmentBlobsForLogs } from "~/models/attachment.server";
 import { requireVehicleAccess } from "~/models/member.server";
 import type { Storage } from "~/storage.server";
@@ -11,6 +11,8 @@ export type { Log };
 
 export type LogListItem = Log & {
   authorName: string | null;
+  /** Vendor (mechanics table) name, when the log is linked to a shop. */
+  mechanicName: string | null;
 };
 
 /**
@@ -30,12 +32,18 @@ export async function getLog({
       authorName: sql<
         string | null
       >`coalesce(${users.displayName}, ${users.email})`,
+      mechanicName: mechanics.name,
     })
     .from(logs)
     .leftJoin(users, eq(users.id, logs.userId))
+    .leftJoin(mechanics, eq(mechanics.id, logs.mechanicId))
     .where(and(eq(logs.id, id), eq(logs.vehicleId, vehicleId)));
   if (!row) return null;
-  return { ...row.log, authorName: row.authorName };
+  return {
+    ...row.log,
+    authorName: row.authorName,
+    mechanicName: row.mechanicName,
+  };
 }
 
 export async function getLogListItems({
@@ -53,13 +61,19 @@ export async function getLogListItems({
       authorName: sql<
         string | null
       >`coalesce(${users.displayName}, ${users.email})`,
+      mechanicName: mechanics.name,
     })
     .from(logs)
     .leftJoin(users, eq(users.id, logs.userId))
+    .leftJoin(mechanics, eq(mechanics.id, logs.mechanicId))
     .where(eq(logs.vehicleId, vehicleId))
     .orderBy(desc(logs.servicedAt), desc(logs.createdAt));
   const rows = await (limit != null ? query.limit(limit) : query);
-  return rows.map((r) => ({ ...r.log, authorName: r.authorName }));
+  return rows.map((r) => ({
+    ...r.log,
+    authorName: r.authorName,
+    mechanicName: r.mechanicName,
+  }));
 }
 
 /** Highest odometer ever logged for the vehicle (best guess at current). */
