@@ -54,7 +54,7 @@ const extractScanFn = createServerFn({ method: "POST" })
 
     try {
       const bytes = new Uint8Array(await checked.file.arrayBuffer());
-      const receipt = await extractReceiptScan(bytes);
+      const receipt = await extractReceiptScan(bytes, checked.file.type);
       return { receipt };
     } catch (err) {
       return {

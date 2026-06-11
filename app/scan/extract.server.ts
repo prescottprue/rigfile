@@ -8,6 +8,8 @@
  * batch-scanned invoice extract identically.
  */
 
+import { Buffer } from "node:buffer";
+
 import { extractReceipt as extractWithOllama } from "~/scan/ollama.server";
 import {
   EXTRACTION_PROMPT,
@@ -109,28 +111,37 @@ export function isLicenseAgreementError(err: unknown): boolean {
 async function runWorkersAiExtraction(
   workersAi: { ai: WorkersAi; model: string },
   image: Uint8Array,
+  contentType: string,
 ): Promise<ExtractedReceipt> {
-  // JSON mode (`response_format`) is only honored on the chat/messages
-  // input form — with a bare `prompt` the request routes to the
-  // image-to-text task and the schema is ignored, yielding prose. The
-  // image itself still rides at the top level as an array of 8-bit ints.
+  // Input shape verified against the live model (2026-06): the image must be
+  // an `image_url` data-URL part *inside* the user message. A top-level
+  // `image` next to `messages` is rejected (error 3030), and a bare `prompt`
+  // routes to the image-to-text task. response_format is honored on this
+  // chat form. The JSON nudge is belt-and-braces for runs where it isn't;
+  // Ollama enforces the schema natively so it stays out of the shared
+  // EXTRACTION_PROMPT.
+  const dataUrl = `data:${contentType};base64,${Buffer.from(image).toString("base64")}`;
   const result = await workersAi.ai.run(workersAi.model, {
-    // The JSON nudge is belt-and-braces for runs where response_format is
-    // ignored; Ollama enforces the schema natively so it stays out of the
-    // shared EXTRACTION_PROMPT.
     messages: [
       {
         role: "user",
-        content: `${EXTRACTION_PROMPT} Respond with only a JSON object — no prose.`,
+        content: [
+          {
+            type: "text",
+            text: `${EXTRACTION_PROMPT} Respond with only a JSON object — no prose.`,
+          },
+          { type: "image_url", image_url: { url: dataUrl } },
+        ],
       },
     ],
-    image: Array.from(image),
     response_format: {
       type: "json_schema",
       json_schema: RECEIPT_JSON_SCHEMA,
     },
     temperature: 0,
-    max_tokens: 1024,
+    // Generous headroom — a long line-itemed invoice that gets truncated
+    // mid-JSON reads as "did not return valid JSON" to the parser.
+    max_tokens: 2048,
   });
   return normalizeReceipt(parseWorkersAiResponse(result));
 }
@@ -142,20 +153,21 @@ async function runWorkersAiExtraction(
  */
 export async function extractReceiptScan(
   image: Uint8Array,
+  contentType = "image/jpeg",
 ): Promise<ExtractedReceipt> {
   const workersAi = await getWorkersAi();
   let workersAiError: Error | null = null;
 
   if (workersAi) {
     try {
-      return await runWorkersAiExtraction(workersAi, image);
+      return await runWorkersAiExtraction(workersAi, image, contentType);
     } catch (err) {
       if (isLicenseAgreementError(err)) {
         // First-ever call on this Cloudflare account: accept the Meta
         // license (one-time, per account) and retry the extraction.
         try {
           await workersAi.ai.run(workersAi.model, { prompt: "agree" });
-          return await runWorkersAiExtraction(workersAi, image);
+          return await runWorkersAiExtraction(workersAi, image, contentType);
         } catch (retryErr) {
           workersAiError =
             retryErr instanceof Error ? retryErr : new Error(String(retryErr));
