@@ -1,4 +1,4 @@
-# Crew Chief
+# Logbook
 
 A personal maintenance log for every car you own. Track services, parts,
 odometer, cost, and notes per vehicle. Export your whole history as JSON
@@ -129,9 +129,9 @@ single container. One command, one mounted volume:
 ```sh
 docker run -d \
   -p 3000:3000 \
-  -v crew-chief-data:/app/data \
+  -v logbook-data:/app/data \
   -e SESSION_SECRET="$(openssl rand -base64 48)" \
-  ghcr.io/scottprue/crew-chief:latest
+  ghcr.io/scottprue/logbook:latest
 ```
 
 Everything persistent (Postgres cluster + uploaded files) lives under
@@ -331,7 +331,7 @@ breaking old bundles.
 
 ## Scan Bay — digitizing paper records
 
-A big part of Crew Chief is getting a backlog of paper shop invoices into the
+A big part of Logbook is getting a backlog of paper shop invoices into the
 app. Scan Bay does that locally, for **$0** — it runs a vision model on your own
 machine (Ollama + `qwen3-vl:8b` by default), so the receipts never leave your
 laptop and there's no per-page API cost.

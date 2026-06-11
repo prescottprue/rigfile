@@ -100,7 +100,7 @@ export const Route = createFileRoute("/account/export")({
 
         return Response.json(body, {
           headers: {
-            "content-disposition": `attachment; filename="crew-chief-${user.email}.json"`,
+            "content-disposition": `attachment; filename="logbook-${user.email}.json"`,
           },
         });
       },
