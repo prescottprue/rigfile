@@ -3,7 +3,9 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "~/db/client";
 import type { NewVehicle, Vehicle } from "~/db/schema";
 import { logs, reminders, vehicleMembers, vehicles } from "~/db/schema";
+import { deleteAttachmentBlobsForLogs } from "~/models/attachment.server";
 import type { VehicleRole } from "~/models/member.server";
+import type { Storage } from "~/storage.server";
 
 export type { Vehicle };
 
@@ -136,8 +138,27 @@ export async function createVehicle(input: NewVehicle) {
 export async function deleteVehicle({
   id,
   userId,
-}: Pick<Vehicle, "id" | "userId">) {
+  storage,
+}: Pick<Vehicle, "id" | "userId"> & {
+  /** Override the storage driver (tests). */
+  storage?: Storage;
+}) {
   const db = await getDb();
+  // Reap attachment bytes for every log on the vehicle before the row
+  // cascade makes their paths unreachable. Scoped by owner to match the
+  // delete below — a non-owner gets a no-op here and a no-op delete.
+  const logRows = await db
+    .select({ id: logs.id })
+    .from(logs)
+    .innerJoin(
+      vehicles,
+      and(eq(vehicles.id, logs.vehicleId), eq(vehicles.userId, userId)),
+    )
+    .where(eq(logs.vehicleId, id));
+  await deleteAttachmentBlobsForLogs({
+    logIds: logRows.map((r) => r.id),
+    ...(storage ? { storage } : {}),
+  });
   return db
     .delete(vehicles)
     .where(and(eq(vehicles.id, id), eq(vehicles.userId, userId)));

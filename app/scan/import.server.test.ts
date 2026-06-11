@@ -32,6 +32,9 @@ class MemoryStorage implements Storage {
   async exists(key: string) {
     return this.files.has(key);
   }
+  async delete(key: string) {
+    this.files.delete(key);
+  }
 }
 
 let userId: string;

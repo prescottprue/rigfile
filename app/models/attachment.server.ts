@@ -1,5 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "~/db/client";
 import type { LogAttachment } from "~/db/schema";
@@ -102,4 +102,56 @@ export async function listLogAttachments({
     .from(logAttachments)
     .where(eq(logAttachments.logId, logId))
     .orderBy(asc(logAttachments.createdAt));
+}
+
+/**
+ * Delete an attachment: the row and the stored bytes. Any crew member of the
+ * vehicle can remove an attachment, same as the rest of the log's data.
+ * Returns the deleted row, or null when the id wasn't found on that log.
+ */
+export async function removeLogAttachment({
+  id,
+  logId,
+  vehicleId,
+  userId,
+  storage = getStorage(),
+}: {
+  id: string;
+  logId: string;
+  vehicleId: string;
+  userId: string;
+  /** Override the storage driver (tests). */
+  storage?: Storage;
+}): Promise<LogAttachment | null> {
+  await requireLogAccess({ logId, vehicleId, userId });
+  const db = await getDb();
+  const [deleted] = await db
+    .delete(logAttachments)
+    .where(and(eq(logAttachments.id, id), eq(logAttachments.logId, logId)))
+    .returning();
+  if (!deleted) return null;
+  await storage.delete(deleted.path);
+  return deleted;
+}
+
+/**
+ * Blob cleanup for cascading deletes: remove the stored bytes for every
+ * attachment under the given logs. Callers delete the rows themselves (the
+ * `log_attachments` FK cascades); this only reaps storage. Access must
+ * already be checked by the caller.
+ */
+export async function deleteAttachmentBlobsForLogs({
+  logIds,
+  storage = getStorage(),
+}: {
+  logIds: string[];
+  storage?: Storage;
+}): Promise<void> {
+  if (logIds.length === 0) return;
+  const db = await getDb();
+  const rows = await db
+    .select({ path: logAttachments.path })
+    .from(logAttachments)
+    .where(inArray(logAttachments.logId, logIds));
+  await Promise.all(rows.map((row) => storage.delete(row.path)));
 }

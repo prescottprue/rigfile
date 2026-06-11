@@ -6,8 +6,9 @@ import { users } from "~/db/schema";
 import {
   addLogAttachment,
   listLogAttachments,
+  removeLogAttachment,
 } from "~/models/attachment.server";
-import { createLog } from "~/models/log.server";
+import { createLog, deleteLog } from "~/models/log.server";
 import { createVehicle } from "~/models/vehicle.server";
 import type { Storage, StoredFile } from "~/storage.server";
 
@@ -35,6 +36,9 @@ class MemoryStorage implements Storage {
   }
   async exists(key: string) {
     return this.files.has(key);
+  }
+  async delete(key: string) {
+    this.files.delete(key);
   }
 }
 
@@ -114,5 +118,86 @@ describe("log attachments", () => {
     } finally {
       await db.delete(users).where(eq(users.id, stranger.id));
     }
+  });
+
+  it("removes the row and the stored bytes on delete", async () => {
+    const storage = new MemoryStorage();
+    const attachment = await addLogAttachment({
+      logId,
+      vehicleId,
+      userId,
+      body: new Uint8Array([9, 9, 9]),
+      contentType: "image/jpeg",
+      originalName: "delete-me.jpg",
+      storage,
+    });
+    expect(storage.files.has(attachment.path)).toBe(true);
+
+    const deleted = await removeLogAttachment({
+      id: attachment.id,
+      logId,
+      vehicleId,
+      userId,
+      storage,
+    });
+    expect(deleted?.id).toBe(attachment.id);
+    expect(storage.files.has(attachment.path)).toBe(false);
+
+    const list = await listLogAttachments({ logId, vehicleId, userId });
+    expect(list.map((a) => a.id)).not.toContain(attachment.id);
+  });
+
+  it("returns null deleting an attachment that isn't on that log", async () => {
+    const result = await removeLogAttachment({
+      id: "nonexistent-id",
+      logId,
+      vehicleId,
+      userId,
+      storage: new MemoryStorage(),
+    });
+    expect(result).toBeNull();
+  });
+
+  it("rejects attachment deletion by users without crew access", async () => {
+    const [stranger] = await db
+      .insert(users)
+      .values({ email: `attach-del-stranger-${Date.now()}@example.com` })
+      .returning();
+    if (!stranger) throw new Error("stranger insert failed");
+    try {
+      await expect(
+        removeLogAttachment({
+          id: "whatever",
+          logId,
+          vehicleId,
+          userId: stranger.id,
+          storage: new MemoryStorage(),
+        }),
+      ).rejects.toThrow("Vehicle not found");
+    } finally {
+      await db.delete(users).where(eq(users.id, stranger.id));
+    }
+  });
+
+  it("reaps attachment blobs when the log is deleted", async () => {
+    const storage = new MemoryStorage();
+    const doomed = await createLog({
+      userId,
+      vehicleId,
+      title: "Doomed log",
+    });
+    const attachment = await addLogAttachment({
+      logId: doomed.id,
+      vehicleId,
+      userId,
+      body: new Uint8Array([1, 2, 3]),
+      contentType: "image/jpeg",
+      storage,
+    });
+    expect(storage.files.size).toBe(1);
+
+    await deleteLog({ id: doomed.id, userId, vehicleId, storage });
+    expect(storage.files.size).toBe(0);
+    expect(storage.files.has(attachment.path)).toBe(false);
   });
 });
