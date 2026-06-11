@@ -38,6 +38,8 @@ user-facing context and tool-choice rationale.
 npm run docker:dev      # start local Postgres (pgvector/pgvector:pg16 on :5440)
 npm run db:migrate      # apply Drizzle migrations
 npm run db:seed         # scott@example.com / scottiscool + vehicle, log, reminders, project
+npm run scan:extract -- <folder>            # Scan Bay: scans → review JSON (local Ollama)
+npm run scan:import -- <review.json> --vehicle <id> [--user <id>] [--reminders]
 npm run db:generate     # after schema changes
 npm run db:studio       # Drizzle Studio against local DB
 npm run dev             # Vite dev server on :3000
@@ -109,6 +111,7 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
 ## Files to know
 
 1. `app/db/schema.ts` — all tables + pgvector + tsvector setup
+   (incl. `log_attachments`: scans/photos/docs attached to a log)
 2. `app/db/client.ts` — postgres-js client, runtime-aware
 3. `app/db/migrations/` — generated SQL (do not edit by hand unless
    adding CREATE EXTENSION-style ops that Drizzle can't infer)
@@ -119,17 +122,22 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    `member.server.ts` (crew/invites/access), `reminder.server.ts`
    (date+mileage due, recurring roll-forward), `project.server.ts`
    (builds + parts pipeline; status vocab in `project.shared.ts` because
-   client code can't import values from `.server.ts` modules)
-8. `app/routes/*` — file-based routes, including `/files/$` streaming
+   client code can't import values from `.server.ts` modules),
+   `attachment.server.ts` (log attachments — uploads via storage layer +
+   row insert, access checked against the log's vehicle)
+8. `app/scan/receipt.ts` — Scan Bay's isomorphic extraction contract (JSON
+   schema + prompt + `normalizeReceipt`/`receiptToNotes`), shared by the CLI
+   and the future Workers AI path. CLI lives in `scripts/scan-bay/`.
+9. `app/routes/*` — file-based routes, including `/files/$` streaming
    route and `/account/export` JSON bundle endpoint
-9. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, secrets)
-10. `drizzle.config.ts` — Drizzle Kit config
-11. `tsr.config.json` — TanStack Router CLI config; drives
+10. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, secrets)
+11. `drizzle.config.ts` — Drizzle Kit config
+12. `tsr.config.json` — TanStack Router CLI config; drives
     `app/routeTree.gen.ts` generation (the file is gitignored, so
     `npm run typecheck` regenerates it via `tsr generate` first)
-12. `biome.json` — lint/format rules
-13. `Dockerfile` + `docker/s6-rc.d/` — single-container self-host image
-14. `docker-compose.yml` — dev Postgres only (not for self-host)
+13. `biome.json` — lint/format rules
+14. `Dockerfile` + `docker/s6-rc.d/` — single-container self-host image
+15. `docker-compose.yml` — dev Postgres only (not for self-host)
 
 ## Git conventions
 
@@ -171,22 +179,21 @@ Remix/Prisma stack in places and are queued for a refresh pass.
 ### 1. Scan Bay — paper shop-record ingestion (local AI, $0)
 
 The app's core purpose is digitizing Scott's vehicle maintenance records,
-including a backlog of paper shop invoices. Plan validated against local
-hardware (M3 Pro / 18 GB, Ollama installed):
+including a backlog of paper shop invoices.
 
-- **Batch CLI** (`scripts/` + local Ollama `qwen3-vl:8b`, JSON-schema
-  structured output via `format` on `/api/chat`, temperature 0): folder of
-  scans → extracted JSON review file → import creates logs via the model
-  layer + stores the original scan with each log. Working extraction
-  prompt/schema prototype: `/tmp/extract-receipt.sh` (recreate if gone —
-  fields: shopName/location, invoiceNumber, serviceDate, vehicle, odometer,
-  totalCost, lineItems[], suggestedTitle, recommendedWork).
-- Needs a `log_attachments` table (logId, path, contentType) — storage
-  layer already handles uploads.
-- `recommendedWork` (tech notes like "pads at 5mm, replace in 5k mi") can
-  prefill a reminder.
-- **In-app one-off scans (phase 2):** same schema via Cloudflare Workers
-  AI binding (free tier) so phone captures work without the Mac.
+- **Phase 1 (DONE) — batch CLI.** `scripts/scan-bay/` + local Ollama
+  (`qwen3-vl:8b`, JSON-schema structured output via `format` on `/api/chat`,
+  temp 0). Two steps with a human review between: `npm run scan:extract --
+  <folder>` writes a `scan-review.json`; edit it; `npm run scan:import --
+  <review.json> --vehicle <id> [--reminders]` creates a log per invoice via
+  the model layer, stores the original scan as a `log_attachments` row, and
+  (with `--reminders`) drafts a reminder from `recommendedWork`. Idempotent —
+  imported entries are stamped with their logId. The extraction prompt +
+  schema + normalizer live in `app/scan/receipt.ts` (isomorphic, so phase 2
+  reuses them). Attachments render on the log detail page.
+- **Phase 2 (TODO) — in-app one-off scans:** same `app/scan/receipt.ts`
+  contract via the Cloudflare Workers AI binding (free tier) so phone
+  captures work without the Mac.
 - Deliberately NOT the Anthropic API — cost. Don't suggest it for this.
 
 ### 2. Crew Chief MCP server
