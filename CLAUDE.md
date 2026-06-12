@@ -113,8 +113,13 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
 1. `app/db/schema.ts` — all tables + pgvector + tsvector setup
    (incl. `log_attachments`: scans/photos/docs attached to a log;
    `vehicles.vin`: backfilled from receipts, never overwritten;
+   `vehicles.engine`: free-text engine description, filled by vPIC decode,
+   always user-editable;
    `logs.service_started_at` + `serviced_at`: service start and
-   close/completion dates — a single-date receipt fills only the close)
+   close/completion dates — a single-date receipt fills only the close;
+   `odometer_readings`: standalone mileage entries (odometer, read_at, note,
+   user_id) — "last odometer" is latest-by-date across logs + manual readings,
+   ties broken by higher miles)
 2. `app/db/client.ts` — postgres-js client, runtime-aware
 3. `app/db/migrations/` — generated SQL (do not edit by hand unless
    adding CREATE EXTENSION-style ops that Drizzle can't infer)
@@ -131,27 +136,45 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    `attachment.server.ts` (log attachments — uploads via storage layer +
    row insert, access checked against the log's vehicle),
    `mechanic.server.ts` (vendors/shops — case-insensitive find-or-create;
-   logs link via `logs.mechanicId`, the logs list filters by vendor)
-8. `app/scan/` — Scan Bay. `receipt.ts` is the isomorphic extraction
+   logs link via `logs.mechanicId`, the logs list filters by vendor),
+   `odometer.server.ts` (union latest across logs + manual readings, batch
+   helper, history, create/delete — deletes restricted to author-or-owner),
+   `vehicle-form.server.ts` (shared parse + avatar store + avatar reap for
+   create and edit routes)
+8. `app/lib/` — isomorphic client utilities (safe to call from route
+   components): `image.ts` (`downscaleImage` — shared JPEG downscale used
+   by the scan page ~1600px and avatar uploads ~1024px; deliberately NOT
+   named `.client.ts` because TanStack Start's import-protection denies
+   `*.client.*` imports from SSR-reachable route components — functions are
+   only called inside browser event handlers), `vpic.ts` (NHTSA vPIC
+   client — VIN decode prefills year/make/model/trim/engine; make/model
+   datalist suggestions; browser-direct CORS calls, no API key, 5s timeout,
+   degrades gracefully to plain free-text)
+9. `app/scan/` — Scan Bay. `receipt.ts` is the isomorphic extraction
    contract (JSON schema + prompt + `normalizeReceipt`/`receiptToNotes`);
    `extract.server.ts` is the runtime seam (Workers AI binding on CF,
    Ollama fallback on Node — `ollama.server.ts`); `import.server.ts` is
    `createLogWithScan` (log + attachment + optional reminder), shared by
    the batch CLI (`scripts/scan-bay/`) and the in-app scan page.
-9. `app/routes/*` — file-based routes, including `/files/$` streaming
-   route, `/account/export` JSON bundle endpoint, and
-   `_authed.vehicles.$vehicleId.scan.tsx` (in-app receipt scan)
-10. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, Workers
+10. `app/routes/*` — file-based routes, including `/files/$` streaming
+    route, `/account/export` JSON bundle endpoint,
+    `_authed.vehicles.$vehicleId.scan.tsx` (in-app receipt scan),
+    `_authed.vehicles.$vehicleId.odometer.tsx` (current reading + source +
+    quick-add form + history with author-or-owner delete), and
+    `_authed.vehicles.$vehicleId.edit.tsx` (owner-only vehicle edit:
+    name/year/make/model/trim/engine/VIN/avatar); `app/components/VehicleForm.tsx`
+    is the shared create/edit form (vPIC assists + avatar downscale)
+11. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, Workers
     AI, secrets). The `ai` binding is remote-only; dev keeps remote
     bindings OFF unless `CF_REMOTE_BINDINGS=1` (see vite.config.ts), so
     `npm run dev` never requires `wrangler login`.
-11. `drizzle.config.ts` — Drizzle Kit config
-12. `tsr.config.json` — TanStack Router CLI config; drives
+12. `drizzle.config.ts` — Drizzle Kit config
+13. `tsr.config.json` — TanStack Router CLI config; drives
     `app/routeTree.gen.ts` generation (the file is gitignored, so
     `npm run typecheck` regenerates it via `tsr generate` first)
-13. `biome.json` — lint/format rules
-14. `Dockerfile` + `docker/s6-rc.d/` — single-container self-host image
-15. `docker-compose.yml` — dev Postgres only (not for self-host)
+14. `biome.json` — lint/format rules
+15. `Dockerfile` + `docker/s6-rc.d/` — single-container self-host image
+16. `docker-compose.yml` — dev Postgres only (not for self-host)
 
 ## Git conventions
 

@@ -76,18 +76,6 @@ export async function getLogListItems({
   }));
 }
 
-/** Highest odometer ever logged for the vehicle (best guess at current). */
-export async function getLatestOdometer({
-  vehicleId,
-}: Pick<Log, "vehicleId">): Promise<number | null> {
-  const db = await getDb();
-  const [row] = await db
-    .select({ latest: sql<number | null>`max(${logs.odometer})` })
-    .from(logs)
-    .where(eq(logs.vehicleId, vehicleId));
-  return row?.latest ?? null;
-}
-
 export async function createLog(input: NewLog) {
   await requireVehicleAccess({
     vehicleId: input.vehicleId,

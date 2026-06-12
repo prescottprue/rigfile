@@ -73,6 +73,9 @@ export const vehicles = pgTable("vehicles", {
   year: integer().notNull(),
   // 17-char VIN; backfilled from scanned shop receipts when missing.
   vin: text(),
+  // Free-text engine description, e.g. "3.6L V6 Pentastar". Filled by the
+  // vPIC VIN decode on the vehicle form, always user-editable.
+  engine: text(),
   avatarPath: text("avatar_path"),
   userId: text("user_id")
     .notNull()
@@ -315,6 +318,31 @@ export const logsToParts = pgTable(
   (t) => [primaryKey({ columns: [t.logId, t.partId] })],
 );
 
+export const odometerReadings = pgTable(
+  "odometer_readings",
+  {
+    id: cuid2().primaryKey(),
+    odometer: doublePrecision().notNull(),
+    // When the reading was taken. Date-only semantics (UTC midnight from an
+    // <input type="date">) — render with formatDateOnly.
+    readAt: timestamp("read_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    note: text(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    vehicleId: text("vehicle_id")
+      .notNull()
+      .references(() => vehicles.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    ...timestamps,
+  },
+  (t) => [index("odometer_readings_vehicle_idx").on(t.vehicleId)],
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Vehicle = typeof vehicles.$inferSelect;
@@ -334,3 +362,5 @@ export type ProjectItem = typeof projectItems.$inferSelect;
 export type NewProjectItem = typeof projectItems.$inferInsert;
 export type LogAttachment = typeof logAttachments.$inferSelect;
 export type NewLogAttachment = typeof logAttachments.$inferInsert;
+export type OdometerReading = typeof odometerReadings.$inferSelect;
+export type NewOdometerReading = typeof odometerReadings.$inferInsert;

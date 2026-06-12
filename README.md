@@ -9,6 +9,10 @@ What it does today:
 
 - **Work logs** — quick-capture form with tap-to-fill presets (oil change,
   brake pads, …), odometer/cost, and full-text search.
+- **Odometer tracking** — standalone mileage entries (date + miles + optional
+  note) supplement work-log odometer readings. The dashboard chip shows the
+  latest reading with its date; the odometer page lists the full history with
+  source (linked service log or manual) and lets any crew member add a reading.
 - **Crew sharing** — invite someone by email to any vehicle; members see
   and log everything on shared vehicles (invites for new emails are
   claimed automatically at signup).
@@ -19,6 +23,17 @@ What it does today:
 - **Projects** — plan bigger builds (e.g. rally prep): parts with prices
   and links through a proposed → ordered → received → installed pipeline,
   estimated vs committed budget, and a countdown to a target date.
+- **Vehicle editing** — owners can update a vehicle's name, year, make,
+  model, trim, engine, VIN, and avatar photo at any time. Typing a VIN
+  calls the free NHTSA vPIC API directly from the browser (no key, no
+  server round-trip) to prefill year/make/model/trim/engine; make/model
+  fields offer datalist suggestions from the same source. Editing a VIN
+  explicitly is intentionally allowed; scan-based backfill only fills a
+  blank VIN.
+- **Avatar photos** — vehicle photos are downscaled client-side (≤ 1024px
+  JPEG) before upload, so 12 MB phone shots arrive as a few hundred KB.
+  (HEIC works in Safari, which can decode it; other browsers fall back to
+  the original file and the server's 2MB cap applies.)
 - **Garage Mode** — one tap flips the whole app to a high-contrast dark
   theme with bigger type and fat touch targets, for reading at arm's
   length under bad shop lighting. Mobile-first throughout.
@@ -318,6 +333,7 @@ out of the client bundle.
   "user": { "id": "...", "email": "...", "createdAt": "...", "updatedAt": "..." },
   "vehicles": [{ ..., "avatarUrl": "/files/..." }],
   "logs": [ ... ],
+  "odometerReadings": [ ... ],
   "mechanics": [ ... ],
   "tags": [ ... ],
   "parts": [ ... ],

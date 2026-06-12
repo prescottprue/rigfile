@@ -18,13 +18,14 @@ import {
   errorBox,
   input,
 } from "~/components/ui";
-import { getLatestOdometer, getLogListItems } from "~/models/log.server";
+import { getLogListItems } from "~/models/log.server";
 import {
   inviteToCrew,
   listCrew,
   removeCrewMember,
   revokeInvite,
 } from "~/models/member.server";
+import { getLatestOdometer } from "~/models/odometer.server";
 import { listProjects } from "~/models/project.server";
 import { listReminders } from "~/models/reminder.server";
 import { deleteVehicle } from "~/models/vehicle.server";
@@ -287,16 +288,27 @@ function VehicleDashboard() {
         >
           📷 Scan receipt
         </Link>
-        <div className={`${card} flex items-center gap-3 px-5 py-3`}>
+        <Link
+          to="/vehicles/$vehicleId/odometer"
+          params={{ vehicleId: v.id }}
+          className={`${card} flex items-center gap-3 px-5 py-3 transition-colors hover:bg-sunken`}
+        >
           <span className="text-xs font-bold uppercase tracking-wide text-ink-muted">
-            Odometer
+            Last odometer
           </span>
-          <span className="text-xl font-bold tabular-nums text-ink">
-            {data.odometer != null
-              ? `${Math.round(data.odometer).toLocaleString()} mi`
-              : "—"}
+          <span className="flex flex-col">
+            <span className="text-xl font-bold tabular-nums text-ink">
+              {data.odometer != null
+                ? `${Math.round(data.odometer.odometer).toLocaleString()} mi`
+                : "—"}
+            </span>
+            {data.odometer != null ? (
+              <span className="text-xs text-ink-muted">
+                {formatDateOnly(data.odometer.date)}
+              </span>
+            ) : null}
           </span>
-        </div>
+        </Link>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -429,7 +441,14 @@ function VehicleDashboard() {
       </div>
 
       {isOwner ? (
-        <div className="pt-4 text-right">
+        <div className="flex items-center justify-end gap-6 pt-4">
+          <Link
+            to="/vehicles/$vehicleId/edit"
+            params={{ vehicleId: v.id }}
+            className="text-sm font-semibold text-accent hover:underline"
+          >
+            Edit vehicle
+          </Link>
           <button
             type="button"
             onClick={onDelete}

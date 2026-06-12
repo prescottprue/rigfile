@@ -3,8 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "~/db/client";
 import type { NewReminder, Reminder } from "~/db/schema";
 import { reminders } from "~/db/schema";
-import { getLatestOdometer } from "~/models/log.server";
 import { requireVehicleAccess } from "~/models/member.server";
+import { getLatestOdometer } from "~/models/odometer.server";
 
 export type { Reminder };
 
@@ -80,7 +80,7 @@ export async function listReminders({
     .select()
     .from(reminders)
     .where(eq(reminders.vehicleId, vehicleId));
-  const odometer = await getLatestOdometer({ vehicleId });
+  const odometer = (await getLatestOdometer({ vehicleId }))?.odometer ?? null;
 
   return rows
     .map((r) => ({ ...r, ...computeReminderStatus(r, odometer) }))
@@ -165,7 +165,8 @@ export async function completeReminder({
   }
   let nextDueMiles: number | null = null;
   if (reminder.intervalMiles != null) {
-    const base = odometer ?? (await getLatestOdometer({ vehicleId }));
+    const base =
+      odometer ?? (await getLatestOdometer({ vehicleId }))?.odometer ?? null;
     nextDueMiles =
       base != null
         ? base + reminder.intervalMiles

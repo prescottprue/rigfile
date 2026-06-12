@@ -43,6 +43,13 @@
       "when": 1781222748692,
       "tag": "0005_optimal_microbe",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781236125214,
+      "tag": "0006_noisy_firebrand",
+      "breakpoints": true
     }
   ]
 }
