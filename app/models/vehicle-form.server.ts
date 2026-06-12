@@ -28,6 +28,11 @@ export async function storeAvatarUpload(
   return { avatarPath: key };
 }
 
+/** Reap a replaced avatar's bytes once the row points at a new key. */
+export async function deleteStoredAvatar(path: string): Promise<void> {
+  await getStorage().delete(path);
+}
+
 /** Shared by the create and edit routes: parse the VehicleForm fields. */
 export function parseVehicleFields(data: FormData):
   | { error: string }

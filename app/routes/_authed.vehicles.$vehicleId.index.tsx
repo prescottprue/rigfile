@@ -441,7 +441,14 @@ function VehicleDashboard() {
       </div>
 
       {isOwner ? (
-        <div className="pt-4 text-right">
+        <div className="flex items-center justify-end gap-6 pt-4">
+          <Link
+            to="/vehicles/$vehicleId/edit"
+            params={{ vehicleId: v.id }}
+            className="text-sm font-semibold text-accent hover:underline"
+          >
+            Edit vehicle
+          </Link>
           <button
             type="button"
             onClick={onDelete}
