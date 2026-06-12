@@ -54,7 +54,7 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.0",
     "drizzle-kit": "^0.31.0",
     "happy-dom": "^20.0.0",
     "lefthook": "2.1.9",
