@@ -18,13 +18,14 @@ import {
   errorBox,
   input,
 } from "~/components/ui";
-import { getLatestOdometer, getLogListItems } from "~/models/log.server";
+import { getLogListItems } from "~/models/log.server";
 import {
   inviteToCrew,
   listCrew,
   removeCrewMember,
   revokeInvite,
 } from "~/models/member.server";
+import { getLatestOdometer } from "~/models/odometer.server";
 import { listProjects } from "~/models/project.server";
 import { listReminders } from "~/models/reminder.server";
 import { deleteVehicle } from "~/models/vehicle.server";
@@ -293,7 +294,7 @@ function VehicleDashboard() {
           </span>
           <span className="text-xl font-bold tabular-nums text-ink">
             {data.odometer != null
-              ? `${Math.round(data.odometer).toLocaleString()} mi`
+              ? `${Math.round(data.odometer.odometer).toLocaleString()} mi`
               : "—"}
           </span>
         </div>

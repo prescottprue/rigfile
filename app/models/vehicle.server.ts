@@ -1,10 +1,11 @@
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { getDb } from "~/db/client";
 import type { NewVehicle, Vehicle } from "~/db/schema";
 import { logs, reminders, vehicleMembers, vehicles } from "~/db/schema";
 import { deleteAttachmentBlobsForLogs } from "~/models/attachment.server";
 import { requireVehicleAccess, type VehicleRole } from "~/models/member.server";
+import { getLatestOdometerByVehicle } from "~/models/odometer.server";
 import type { Storage } from "~/storage.server";
 
 export type { Vehicle };
@@ -69,17 +70,7 @@ export async function getVehicleListItems({
 
   const vehicleIds = rows.map((r) => r.vehicle.id);
 
-  const odoRows = await db
-    .select({
-      vehicleId: logs.vehicleId,
-      latestOdometer: sql<number | null>`max(${logs.odometer})`,
-    })
-    .from(logs)
-    .where(inArray(logs.vehicleId, vehicleIds))
-    .groupBy(logs.vehicleId);
-  const odoByVehicle = new Map(
-    odoRows.map((r) => [r.vehicleId, r.latestOdometer]),
-  );
+  const latestByVehicle = await getLatestOdometerByVehicle({ vehicleIds });
 
   const reminderRows = await db
     .select()
@@ -95,7 +86,7 @@ export async function getVehicleListItems({
   const soonCutoff = now + DUE_SOON_DAYS * 24 * 60 * 60 * 1000;
   const alerts = new Map<string, { overdue: number; dueSoon: number }>();
   for (const r of reminderRows) {
-    const odo = odoByVehicle.get(r.vehicleId) ?? null;
+    const odo = latestByVehicle.get(r.vehicleId)?.odometer ?? null;
     const overdue =
       (r.dueDate != null && r.dueDate.getTime() <= now) ||
       (r.dueMiles != null && odo != null && odo >= r.dueMiles);
@@ -114,7 +105,7 @@ export async function getVehicleListItems({
   return rows.map(({ vehicle, role }) => ({
     ...vehicle,
     role: role as VehicleRole,
-    latestOdometer: odoByVehicle.get(vehicle.id) ?? null,
+    latestOdometer: latestByVehicle.get(vehicle.id)?.odometer ?? null,
     overdueCount: alerts.get(vehicle.id)?.overdue ?? 0,
     dueSoonCount: alerts.get(vehicle.id)?.dueSoon ?? 0,
   }));
