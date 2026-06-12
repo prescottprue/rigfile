@@ -18,7 +18,7 @@ COPY . .
 RUN npm run build
 
 # -------- Stage 2: runtime (Postgres + Node + app) --------
-FROM postgres:16-alpine AS runtime
+FROM postgres:18-alpine AS runtime
 
 ARG NODE_VERSION
 ARG S6_OVERLAY_VERSION
