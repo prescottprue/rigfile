@@ -10,7 +10,11 @@ import {
   getLatestOdometer,
   listOdometerHistory,
 } from "~/models/odometer.server";
-import { createReminder, listReminders } from "~/models/reminder.server";
+import {
+  completeReminder,
+  createReminder,
+  listReminders,
+} from "~/models/reminder.server";
 import { createVehicle } from "~/models/vehicle.server";
 
 // Integration test — requires DATABASE_URL pointing at a running local
@@ -300,5 +304,38 @@ describe("reminders use the union latest", () => {
     const oil = reminders.find((r) => r.title === "Oil change");
     expect(oil?.milesLeft).toBe(200);
     expect(oil?.status).toBe("due_soon");
+  });
+
+  it("completeReminder without an explicit odometer rolls forward from the union latest", async () => {
+    const vehicleId = await makeVehicle();
+    const reminder = await createReminder({
+      userId: ownerId,
+      vehicleId,
+      title: "Rotate tires",
+      dueMiles: 61_000,
+      intervalMiles: 5_000,
+    });
+    // Older log with HIGHER miles vs newer manual reading with LOWER miles —
+    // the roll-forward base must be the union latest (61,200), not max (62,000).
+    await createLog({
+      userId: ownerId,
+      vehicleId,
+      title: "Big service",
+      odometer: 62_000,
+      servicedAt: new Date("2026-01-01"),
+    });
+    await createOdometerReading({
+      vehicleId,
+      userId: ownerId,
+      odometer: 61_200,
+      readAt: new Date("2026-06-01"),
+    });
+    const rolled = await completeReminder({
+      id: reminder.id,
+      vehicleId,
+      userId: ownerId,
+    });
+    expect(rolled?.dueMiles).toBe(66_200); // 61,200 + 5,000
+    expect(rolled?.completedAt).toBeNull(); // recurring → stays active
   });
 });
