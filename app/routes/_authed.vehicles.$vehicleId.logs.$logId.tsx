@@ -206,7 +206,7 @@ function LogDetail() {
         <div>
           <dt className="text-ink-muted">Who did it</dt>
           <dd className="mt-0.5 font-semibold text-ink">
-            {log.selfService ? "DIY 🔧" : "Shop"}
+            {log.selfService ? "DIY 🔧" : (log.mechanicName ?? "Shop")}
           </dd>
         </div>
       </dl>

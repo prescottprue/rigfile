@@ -112,6 +112,26 @@ describe("createLogWithScan", () => {
     expect(result.reminder?.notes).toBe("pads at 5mm, replace in 5k mi");
   });
 
+  it("links the receipt's shop as a vendor on the log", async () => {
+    const vendorName = `Vendor Link Test ${Date.now()}`;
+    const result = await createLogWithScan({
+      userId,
+      vehicleId,
+      log: { title: "Diff fluid service", selfService: false },
+      vendor: { name: vendorName, location: "Reno, NV" },
+    });
+    expect(result.log.mechanicId).not.toBeNull();
+
+    // Same shop on a second receipt reuses the vendor row.
+    const again = await createLogWithScan({
+      userId,
+      vehicleId,
+      log: { title: "Diff fluid service round 2", selfService: false },
+      vendor: { name: vendorName.toUpperCase() },
+    });
+    expect(again.log.mechanicId).toBe(result.log.mechanicId);
+  });
+
   it("skips attachment and reminder when not provided", async () => {
     const result = await createLogWithScan({
       userId,

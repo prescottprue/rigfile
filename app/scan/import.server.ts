@@ -13,6 +13,7 @@ import {
   type LogAttachment,
 } from "~/models/attachment.server";
 import { createLog, type Log } from "~/models/log.server";
+import { findOrCreateMechanic } from "~/models/mechanic.server";
 import { createReminder } from "~/models/reminder.server";
 import type { Storage } from "~/storage.server";
 
@@ -26,6 +27,7 @@ export async function createLogWithScan({
   userId,
   vehicleId,
   log,
+  vendor,
   scan,
   reminder,
   storage,
@@ -41,6 +43,11 @@ export async function createLogWithScan({
     servicedAt?: Date;
     selfService?: boolean;
   };
+  /**
+   * The shop that did the work (receipt's shopName). Linked to the log as a
+   * find-or-create `mechanics` row so logs are filterable by vendor.
+   */
+  vendor?: { name: string; location?: string | null } | null;
   /** The captured/scanned image to attach. Omit to just create the log. */
   scan?: ScanFile | null;
   /** Draft a follow-up reminder (from the tech's recommended-work note). */
@@ -52,7 +59,16 @@ export async function createLogWithScan({
   attachment: LogAttachment | null;
   reminder: Reminder | null;
 }> {
-  const created = await createLog({ userId, vehicleId, ...log });
+  const mechanic = vendor?.name.trim()
+    ? await findOrCreateMechanic(vendor)
+    : null;
+
+  const created = await createLog({
+    userId,
+    vehicleId,
+    ...log,
+    mechanicId: mechanic?.id ?? null,
+  });
 
   const attachment = scan
     ? await addLogAttachment({

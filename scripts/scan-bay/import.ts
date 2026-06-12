@@ -105,6 +105,9 @@ async function main() {
         servicedAt: r.serviceDate ? new Date(r.serviceDate) : new Date(),
         selfService: false,
       },
+      vendor: r.shopName
+        ? { name: r.shopName, location: r.shopLocation }
+        : null,
       scan: {
         body: new Uint8Array(bytes),
         contentType,
