@@ -115,13 +115,16 @@ test.describe("smoke tests", () => {
 
     // Create vehicle
     await page.getByRole("link", { name: /add vehicle/i }).click();
+    await waitForHydration(page);
     await page.getByLabel(/make/i).fill(vehicleMake);
     await page.getByLabel(/model/i).fill(vehicleModel);
     await page.getByLabel(/year/i).fill(vehicleYear);
     await page.getByRole("button", { name: /save/i }).click();
 
-    // Verify redirect to the vehicle dashboard (no error flash)
-    await page.waitForURL("**/vehicles/**");
+    // Verify redirect to the vehicle dashboard (no error flash). The
+    // dashboard URL is /vehicles/<id> — exclude /vehicles/new so a failed
+    // submit that stays on the form can't satisfy this wait.
+    await page.waitForURL(/\/vehicles\/(?!new$)[^/]+$/);
     await expectNoErrors(page);
     await page.getByRole("link", { name: /^logs$/i }).click();
 
@@ -130,6 +133,7 @@ test.describe("smoke tests", () => {
 
     // Create log via quick capture
     await page.getByRole("link", { name: /log work/i }).click();
+    await waitForHydration(page);
     await page.getByLabel(/title/i).fill(logTitle);
     await page.getByLabel(/notes/i).fill(logNotes);
     await page.getByRole("button", { name: /save it/i }).click();
