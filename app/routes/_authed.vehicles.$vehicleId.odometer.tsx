@@ -239,7 +239,7 @@ function OdometerPage() {
                 (isOwner || entry.authorUserId === userId) ? (
                   <button
                     type="button"
-                    className="shrink-0 text-xs font-semibold text-danger hover:underline"
+                    className="min-h-11 shrink-0 px-3 text-xs font-semibold text-danger hover:underline"
                     onClick={async () => {
                       if (!window.confirm("Delete this reading?")) return;
                       await deleteReadingFn({
