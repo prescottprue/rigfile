@@ -187,6 +187,10 @@ npx wrangler r2 bucket create vehicle-work-log-uploads
 npx wrangler hyperdrive create vehicle-work-log-db --connection-string="$NEON_URL"
 # paste the returned id into wrangler.jsonc under hyperdrive[0].id
 
+# Create the KV namespace that stores MCP OAuth grants/tokens
+npx wrangler kv namespace create OAUTH_KV
+# paste the returned id into wrangler.jsonc under kv_namespaces[0].id
+
 # Set SESSION_SECRET for the Worker
 npx wrangler secret put SESSION_SECRET
 
@@ -409,14 +413,38 @@ Dev note: Workers AI has no local simulator, so the binding is dev-disabled
 unless you opt in with `CF_REMOTE_BINDINGS=1 npm run dev` (requires
 `wrangler login`); without it, dev scans use local Ollama.
 
+## Logbook MCP — talk to your garage from Claude
+
+The Worker doubles as a remote MCP server at `/mcp`, so anyone on the crew
+can connect Logbook to their own Claude account (claude.ai → Settings →
+Connectors → Add custom connector → `https://<your-worker-domain>/mcp`)
+and ask things like "what's due on the Jeep?" or "log the oil change I
+just did at 87,420 miles" — from a phone, mid-wrench.
+
+Auth is OAuth 2.1, but there are no new accounts and no API keys:
+[`workers-oauth-provider`](https://github.com/cloudflare/workers-oauth-provider)
+wraps the Worker and handles the protocol (dynamic client registration,
+PKCE, token issue/refresh in the `OAUTH_KV` namespace), while the
+`/authorize` consent screen reuses the app's session login against the
+existing `users` table. The granted token carries only `userId`, and every
+tool is a thin wrapper over `app/models/*` — so crew-membership
+authorization applies to MCP exactly as it does in the app.
+
+Tools: `list_vehicles`, `get_vehicle_status`, `whats_due`, `log_work`,
+`complete_reminder`, `list_projects`, `add_project_item`,
+`update_item_status`.
+
+The MCP server runs on Cloudflare only (it needs Durable Objects +
+Workers KV); the Node self-host image serves the app without `/mcp`.
+Rally-specific procedure deliberately stays out of these tools — the app
+stays generic, and event playbooks live in skills that call them.
+
 ## Roadmap
 
 Near-term:
 
 - Extend Playwright e2e coverage to avatar upload, export, crew invites,
   and reminder completion (registration/login/vehicle/log flows are covered)
-- MCP server on the Worker (`/mcp`) so the crew can log work and check
-  what's due from their own Claude accounts — OAuth against existing users
 - Finalize the single-container self-host image and publish the first GHCR
   release
 - Fix the Nitro 3 + TanStack Start node-build integration so `npm run build:node`
@@ -435,7 +463,6 @@ Near-term, garage edition:
 
 Beyond that:
 
-- MCP server exposing read-only tools over the user's data
 - Chat agent backed by `pgvector` embeddings of log title + notes for
   semantic search ("when did I last replace the brake pads on the WRX?")
 - Avatar zip download as a `/account/export.zip` companion to the JSON

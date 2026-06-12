@@ -28,6 +28,14 @@ user-facing context and tool-choice rationale.
 - **Auth**: TanStack Start `useSession` in `app/auth/session.server.ts`,
   wrapped by `loginFn`, `signupFn`, `logoutFn`, `getCurrentUserFn` in
   `app/auth/server-fns.ts`. bcryptjs for hashing.
+- **MCP server**: remote MCP at `/mcp` (CF-only — needs Durable Objects +
+  KV). `server.ts` wraps the TanStack handler in `workers-oauth-provider`
+  (OAuth 2.1: dynamic client registration, PKCE, tokens in `OAUTH_KV`);
+  `app/mcp/agent.server.ts` is the `McpAgent` (agents SDK) whose tools
+  wrap `app/models/*` with the token's `userId`. `/authorize` (route)
+  renders consent and reuses session login; `app/mcp/oauth-context.server.ts`
+  carries the per-request `env.OAUTH_PROVIDER` helpers into the route via
+  AsyncLocalStorage. Worker entry is `server.ts` (`main` in wrangler.jsonc).
 - **Styling**: Tailwind v4 via `@tailwindcss/vite`. No `tailwind.config.ts`,
   no PostCSS — `@import "tailwindcss"` in `app/styles.css`.
 - **Package manager**: npm, lockfile `package-lock.json`. Node 24+.
@@ -160,21 +168,36 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
     route, `/account/export` JSON bundle endpoint,
     `_authed.vehicles.$vehicleId.scan.tsx` (in-app receipt scan),
     `_authed.vehicles.$vehicleId.odometer.tsx` (current reading + source +
-    quick-add form + history with author-or-owner delete), and
+    quick-add form + history with author-or-owner delete),
     `_authed.vehicles.$vehicleId.edit.tsx` (owner-only vehicle edit:
-    name/year/make/model/trim/engine/VIN/avatar); `app/components/VehicleForm.tsx`
+    name/year/make/model/trim/engine/VIN/avatar), and `authorize.tsx`
+    (OAuth consent for the MCP server — server handlers only, renders
+    plain HTML, reuses session auth); `app/components/VehicleForm.tsx`
     is the shared create/edit form (vPIC assists + avatar downscale)
-11. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, Workers
-    AI, secrets). The `ai` binding is remote-only; dev keeps remote
-    bindings OFF unless `CF_REMOTE_BINDINGS=1` (see vite.config.ts), so
-    `npm run dev` never requires `wrangler login`.
-12. `drizzle.config.ts` — Drizzle Kit config
-13. `tsr.config.json` — TanStack Router CLI config; drives
+11. `server.ts` + `app/mcp/` — Worker entry (`main` in wrangler.jsonc):
+    wraps the TanStack handler in `workers-oauth-provider`, mounts
+    `LogbookMCP.serve("/mcp")`, and re-exports the `LogbookMCP` Durable
+    Object. `agent.server.ts` defines the MCP tools (`list_vehicles`,
+    `get_vehicle_status`, `whats_due`, `log_work`, `complete_reminder`,
+    `list_projects`, `add_project_item`, `update_item_status`) as thin
+    wrappers over `app/models/*` using the OAuth token's `userId`;
+    `oauth-context.server.ts` is the AsyncLocalStorage bridge that gets
+    `env.OAUTH_PROVIDER` into the `/authorize` route. `app/env.d.ts`
+    declares the bindings on `Cloudflare.Env`. E2E coverage:
+    `e2e/mcp-oauth.spec.ts` (register → login → consent → PKCE token →
+    MCP initialize/tools-list → 401 anon).
+12. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, Workers
+    AI, `OAUTH_KV` KV namespace, `MCP_OBJECT` Durable Object, secrets).
+    The `ai` binding is remote-only; dev keeps remote bindings OFF unless
+    `CF_REMOTE_BINDINGS=1` (see vite.config.ts), so `npm run dev` never
+    requires `wrangler login`.
+13. `drizzle.config.ts` — Drizzle Kit config
+14. `tsr.config.json` — TanStack Router CLI config; drives
     `app/routeTree.gen.ts` generation (the file is gitignored, so
     `npm run typecheck` regenerates it via `tsr generate` first)
-14. `biome.json` — lint/format rules
-15. `Dockerfile` + `docker/s6-rc.d/` — single-container self-host image
-16. `docker-compose.yml` — dev Postgres only (not for self-host)
+15. `biome.json` — lint/format rules
+16. `Dockerfile` + `docker/s6-rc.d/` — single-container self-host image
+17. `docker-compose.yml` — dev Postgres only (not for self-host)
 
 ## Git conventions
 
@@ -239,21 +262,23 @@ including a backlog of paper shop invoices.
   photo still attaches on save.
 - Deliberately NOT the Anthropic API — cost. Don't suggest it for this.
 
-### 2. Logbook MCP server
+### 2. Logbook MCP server (DONE — see "Files to know" #11)
 
 So the crew can talk to Logbook from their own Claude accounts
 (claude.ai custom connector, works on mobile). NOTE: rally-specific
 features stay OUT of the app — the app is generic vehicle maintenance;
-rally procedure lives in Scott's external rebelle-rally skill, which will
-call these MCP tools:
+rally procedure lives in Scott's external rebelle-rally skill, which
+calls these MCP tools:
 
-- Remote MCP endpoint at `/mcp` on the existing Worker — Cloudflare
-  `agents` SDK (`McpAgent`) + `workers-oauth-provider`, OAuth backed by
-  the existing `users` table + session auth (login screen on connect; no
-  API keys for end users).
-- Tools are thin wrappers over `app/models/*` so crew-membership
-  authorization is enforced for free: `log_work`, `whats_due`,
-  `complete_reminder`, `get_vehicle_status`, `list_projects`,
+- **(DONE)** Remote MCP endpoint at `/mcp` on the existing Worker —
+  Cloudflare `agents` SDK (`McpAgent`) + `workers-oauth-provider`, OAuth
+  backed by the existing `users` table + session auth (login screen on
+  connect; no API keys for end users). Deploy prereqs: `wrangler kv
+  namespace create OAUTH_KV` (paste id into wrangler.jsonc) — the
+  `MCP_OBJECT` Durable Object ships with the first deploy's migration.
+- **(DONE)** Tools are thin wrappers over `app/models/*` so crew-membership
+  authorization is enforced for free: `list_vehicles`, `log_work`,
+  `whats_due`, `complete_reminder`, `get_vehicle_status`, `list_projects`,
   `add_project_item`, `update_item_status`.
 - A rally-prep skill (Rebelle Rally — Scott has a draft) layers event
   procedure on top and calls these tools; keep event-specific content in

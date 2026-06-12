@@ -1,9 +1,9 @@
 import { createId } from "@paralleldrive/cuid2";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-
+import { useEffect, useState } from "react";
 import { requireAuth } from "~/auth/session.server";
+import { btnSecondary, card } from "~/components/ui";
 import { changePassword, updateUser } from "~/models/user.server";
 import { getStorage } from "~/storage.server";
 
@@ -83,7 +83,101 @@ function ProfilePage() {
       <ProfileForm user={user} />
       <hr className="border-slate-200" />
       <PasswordForm />
+      <hr className="border-slate-200" />
+      <ConnectClaude />
+      <hr className="border-slate-200" />
+      <YourData />
     </section>
+  );
+}
+
+function ConnectClaude() {
+  // window.location is browser-only; render the path until hydration fills
+  // in the full origin.
+  const [mcpUrl, setMcpUrl] = useState("/mcp");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setMcpUrl(`${window.location.origin}/mcp`);
+  }, []);
+
+  async function copy() {
+    await navigator.clipboard.writeText(mcpUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-medium text-slate-900">
+        🤖 Connect Claude (MCP)
+      </h2>
+      <div className={`${card} mt-4 max-w-lg p-5`}>
+        <p className="text-sm text-ink-muted">
+          Logbook is an MCP server, so you can talk to your garage from your own
+          Claude account — "what's due on the Jeep?", "log the oil change I just
+          did at 87,420 miles" — from a phone, mid-wrench. Claude signs in as{" "}
+          <em>you</em>: it can only see and log to vehicles your account can
+          access.
+        </p>
+        <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-ink-muted">
+          <li>
+            In Claude (web or mobile), open{" "}
+            <span className="font-medium text-ink">
+              Settings → Connectors → Add custom connector
+            </span>
+          </li>
+          <li>Paste the URL below</li>
+          <li>Sign in with your Logbook account and approve access</li>
+        </ol>
+        <div className="mt-4 flex gap-2">
+          <input
+            type="text"
+            readOnly
+            value={mcpUrl}
+            aria-label="MCP connector URL"
+            onFocus={(e) => e.currentTarget.select()}
+            className="min-h-11 w-full rounded-xl border border-line bg-sunken px-3 font-mono text-sm text-ink"
+          />
+          <button type="button" onClick={copy} className={btnSecondary}>
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-ink-muted">
+          Claude can list your vehicles, check what's due, log completed work,
+          complete reminders, and manage project parts. Connections use OAuth —
+          no API keys, and your password is never shared with Claude.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function YourData() {
+  return (
+    <div>
+      <h2 className="text-lg font-medium text-slate-900">🔓 Your data</h2>
+      <div className={`${card} mt-4 max-w-lg p-5`}>
+        <p className="text-sm text-ink-muted">
+          Your records belong to you. Download your complete history — vehicles,
+          logs, readings, vendors, tags, and parts — as JSON at any time.
+          Logbook is also{" "}
+          <a
+            href="https://github.com/prescottprue/logbook"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-accent hover:underline"
+          >
+            open source
+          </a>
+          , so you can always run your own instance and bring this export with
+          you.
+        </p>
+        <a href="/account/export" download className={`${btnSecondary} mt-4`}>
+          ⬇️ Export everything (JSON)
+        </a>
+      </div>
+    </div>
   );
 }
 
