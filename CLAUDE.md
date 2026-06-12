@@ -111,7 +111,10 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
 ## Files to know
 
 1. `app/db/schema.ts` — all tables + pgvector + tsvector setup
-   (incl. `log_attachments`: scans/photos/docs attached to a log)
+   (incl. `log_attachments`: scans/photos/docs attached to a log;
+   `vehicles.vin`: backfilled from receipts, never overwritten;
+   `logs.service_started_at` + `serviced_at`: service start and
+   close/completion dates — a single-date receipt fills only the close)
 2. `app/db/client.ts` — postgres-js client, runtime-aware
 3. `app/db/migrations/` — generated SQL (do not edit by hand unless
    adding CREATE EXTENSION-style ops that Drizzle can't infer)

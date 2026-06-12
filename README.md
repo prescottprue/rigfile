@@ -349,10 +349,12 @@ npm run scan:import -- ~/Desktop/jeep-receipts/scan-review.json \
   --vehicle <vehicleId> --reminders
 ```
 
-Each imported invoice becomes a work log (title, cost, odometer, service date,
-line items in the notes) with the **original scan stored as an attachment** on
-the log, and the shop linked as a **vendor** — the work history can be
-filtered by vendor. `--reminders` also drafts a follow-up reminder from any
+Each imported invoice becomes a work log (title, cost, odometer, service
+start/end dates, line items in the notes) with the **original scan stored as
+an attachment** on the log, and the shop linked as a **vendor** — the work
+history can be filtered by vendor. Receipts that print the VIN can backfill
+it onto the vehicle (checksum-validated, and only when the vehicle doesn't
+already have one). `--reminders` also drafts a follow-up reminder from any
 recommended work the tech noted ("front pads at 5mm, replace in ~5k mi").
 
 Notes:

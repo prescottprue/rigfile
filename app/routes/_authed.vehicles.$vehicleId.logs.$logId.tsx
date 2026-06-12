@@ -170,7 +170,9 @@ function LogDetail() {
         <div>
           <h2 className="text-xl font-bold text-ink">{log.title}</h2>
           <div className="mt-1 text-sm text-ink-muted">
-            {log.servicedAt.toLocaleDateString()}
+            {log.serviceStartedAt
+              ? `${log.serviceStartedAt.toLocaleDateString()} → ${log.servicedAt.toLocaleDateString()}`
+              : log.servicedAt.toLocaleDateString()}
             {log.type ? ` · ${log.type}` : ""}
             {log.authorName ? ` · logged by ${log.authorName}` : ""}
           </div>
@@ -281,6 +283,12 @@ function LogDetail() {
           </ul>
         )}
       </div>
+      <p className="mt-6 text-xs text-ink-muted">
+        Added {log.createdAt.toLocaleDateString()}
+        {log.updatedAt.getTime() !== log.createdAt.getTime()
+          ? ` · updated ${log.updatedAt.toLocaleDateString()}`
+          : ""}
+      </p>
     </section>
   );
 }

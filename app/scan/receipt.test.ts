@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   type ExtractedReceipt,
+  isValidVinCheckDigit,
   normalizeReceipt,
   receiptToNotes,
 } from "~/scan/receipt";
@@ -93,6 +94,51 @@ describe("normalizeReceipt", () => {
       "Shop service",
     );
   });
+
+  it("normalizes VINs and rejects anything that isn't a clean 17-char VIN", () => {
+    expect(normalizeReceipt({ vin: "1c4hjxdg5mw612345" }).vin).toBe(
+      "1C4HJXDG5MW612345",
+    );
+    // Separators stripped (shops print VINs with spaces/dashes).
+    expect(normalizeReceipt({ vin: "1C4HJ XDG5-MW612 345" }).vin).toBe(
+      "1C4HJXDG5MW612345",
+    );
+    // I/O/Q aren't in the VIN alphabet — likely a misread, so reject.
+    expect(normalizeReceipt({ vin: "1C4HJXDG5MW61234O" }).vin).toBeNull();
+    expect(normalizeReceipt({ vin: "TOO-SHORT" }).vin).toBeNull();
+    expect(normalizeReceipt({}).vin).toBeNull();
+  });
+
+  it("validates VIN check digits (catches OCR-style misreads)", () => {
+    // Valid: check digit (position 9) computed per ISO 3779.
+    expect(isValidVinCheckDigit("1C4HJXDG9MW612345")).toBe(true);
+    // The same VIN with "9" misread as "S" fails the checksum.
+    expect(isValidVinCheckDigit("1C4HJXDGSMW612345")).toBe(false);
+    expect(isValidVinCheckDigit("not a vin")).toBe(false);
+  });
+
+  it("puts a lone date in the close date and drops redundant start dates", () => {
+    // Model misfiles a single date into the start slot → moved to close.
+    const moved = normalizeReceipt({ serviceStartDate: "2026-05-02" });
+    expect(moved.serviceDate).toBe("2026-05-02");
+    expect(moved.serviceStartDate).toBeNull();
+
+    // Two distinct dates pass through.
+    const both = normalizeReceipt({
+      serviceStartDate: "2026-05-01",
+      serviceDate: "2026-05-02",
+    });
+    expect(both.serviceStartDate).toBe("2026-05-01");
+    expect(both.serviceDate).toBe("2026-05-02");
+
+    // Identical start/close collapses to close only.
+    const same = normalizeReceipt({
+      serviceStartDate: "2026-05-02",
+      serviceDate: "2026-05-02",
+    });
+    expect(same.serviceStartDate).toBeNull();
+    expect(same.serviceDate).toBe("2026-05-02");
+  });
 });
 
 describe("receiptToNotes", () => {
@@ -101,7 +147,9 @@ describe("receiptToNotes", () => {
     shopLocation: null,
     invoiceNumber: null,
     serviceDate: null,
+    serviceStartDate: null,
     vehicle: null,
+    vin: null,
     odometer: null,
     totalCost: null,
     lineItems: [],

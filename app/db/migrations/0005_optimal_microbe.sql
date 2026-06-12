@@ -1,0 +1,1 @@
+ALTER TABLE "logs" ADD COLUMN "service_started_at" timestamp with time zone;

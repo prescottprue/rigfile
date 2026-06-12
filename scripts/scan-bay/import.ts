@@ -21,7 +21,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "~/db/client";
 import { vehicles } from "~/db/schema";
 import { createLogWithScan } from "~/scan/import.server.ts";
-import { receiptToNotes } from "~/scan/receipt.ts";
+import { isValidVinCheckDigit, receiptToNotes } from "~/scan/receipt.ts";
 import { contentTypeFor, type ReviewFile } from "./review.ts";
 
 type Args = {
@@ -102,12 +102,19 @@ async function main() {
         type: null,
         cost: r.totalCost,
         odometer: r.odometer,
+        serviceStartedAt: r.serviceStartDate
+          ? new Date(r.serviceStartDate)
+          : null,
         servicedAt: r.serviceDate ? new Date(r.serviceDate) : new Date(),
         selfService: false,
       },
       vendor: r.shopName
         ? { name: r.shopName, location: r.shopLocation }
         : null,
+      // Fills the vehicle's VIN from the receipt when it's still unset
+      // (no-op otherwise — never overwrites). Batch mode has no human in
+      // the loop per receipt, so only checksum-verified VINs qualify.
+      vehicleVin: r.vin && isValidVinCheckDigit(r.vin) ? r.vin : null,
       scan: {
         body: new Uint8Array(bytes),
         contentType,
