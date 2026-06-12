@@ -8,6 +8,7 @@ import {
   logsToParts,
   logsToTags,
   mechanics,
+  odometerReadings,
   parts,
   tags,
   users,
@@ -41,6 +42,7 @@ export const Route = createFileRoute("/account/export")({
         ]);
 
         const logIds = userLogs.map((l) => l.id);
+        const vehicleIds = userVehicles.map((v) => v.id);
         const mechanicIds = Array.from(
           new Set(
             userLogs
@@ -49,26 +51,33 @@ export const Route = createFileRoute("/account/export")({
           ),
         );
 
-        const [tagJoins, partJoins, mechanicRows] = await Promise.all([
-          logIds.length
-            ? db
-                .select()
-                .from(logsToTags)
-                .where(inArray(logsToTags.logId, logIds))
-            : Promise.resolve([]),
-          logIds.length
-            ? db
-                .select()
-                .from(logsToParts)
-                .where(inArray(logsToParts.logId, logIds))
-            : Promise.resolve([]),
-          mechanicIds.length
-            ? db
-                .select()
-                .from(mechanics)
-                .where(inArray(mechanics.id, mechanicIds))
-            : Promise.resolve([]),
-        ]);
+        const [tagJoins, partJoins, mechanicRows, readingRows] =
+          await Promise.all([
+            logIds.length
+              ? db
+                  .select()
+                  .from(logsToTags)
+                  .where(inArray(logsToTags.logId, logIds))
+              : Promise.resolve([]),
+            logIds.length
+              ? db
+                  .select()
+                  .from(logsToParts)
+                  .where(inArray(logsToParts.logId, logIds))
+              : Promise.resolve([]),
+            mechanicIds.length
+              ? db
+                  .select()
+                  .from(mechanics)
+                  .where(inArray(mechanics.id, mechanicIds))
+              : Promise.resolve([]),
+            vehicleIds.length
+              ? db
+                  .select()
+                  .from(odometerReadings)
+                  .where(inArray(odometerReadings.vehicleId, vehicleIds))
+              : Promise.resolve([]),
+          ]);
 
         const tagIds = Array.from(new Set(tagJoins.map((j) => j.tagId)));
         const partIds = Array.from(new Set(partJoins.map((j) => j.partId)));
@@ -91,6 +100,7 @@ export const Route = createFileRoute("/account/export")({
             avatarUrl: v.avatarPath ? `/files/${v.avatarPath}` : null,
           })),
           logs: userLogs,
+          odometerReadings: readingRows,
           mechanics: mechanicRows,
           tags: tagRows,
           parts: partRows,
