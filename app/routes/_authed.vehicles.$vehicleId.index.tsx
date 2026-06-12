@@ -288,16 +288,27 @@ function VehicleDashboard() {
         >
           📷 Scan receipt
         </Link>
-        <div className={`${card} flex items-center gap-3 px-5 py-3`}>
+        <Link
+          to="/vehicles/$vehicleId/odometer"
+          params={{ vehicleId: v.id }}
+          className={`${card} flex items-center gap-3 px-5 py-3 transition-colors hover:bg-sunken`}
+        >
           <span className="text-xs font-bold uppercase tracking-wide text-ink-muted">
-            Odometer
+            Last odometer
           </span>
-          <span className="text-xl font-bold tabular-nums text-ink">
-            {data.odometer != null
-              ? `${Math.round(data.odometer.odometer).toLocaleString()} mi`
-              : "—"}
+          <span className="flex flex-col">
+            <span className="text-xl font-bold tabular-nums text-ink">
+              {data.odometer != null
+                ? `${Math.round(data.odometer.odometer).toLocaleString()} mi`
+                : "—"}
+            </span>
+            {data.odometer != null ? (
+              <span className="text-xs text-ink-muted">
+                {formatDateOnly(data.odometer.date)}
+              </span>
+            ) : null}
           </span>
-        </div>
+        </Link>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
