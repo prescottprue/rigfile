@@ -1,8 +1,4 @@
 {
-  "enabledPlugins": {
-    "superpowers@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true
-  },
   "permissions": {
     "allow": [
       "Edit(/**)",
@@ -39,5 +35,8 @@
       "Bash(gh variable*)"
     ],
     "ask": ["Bash(yarn dlx *)", "Bash(rm -rf *)"]
+  },
+  "enabledPlugins": {
+    "pr-review-toolkit@claude-plugins-official": true
   }
 }
