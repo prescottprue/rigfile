@@ -9,6 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 
 import { requireAuth } from "~/auth/session.server";
+import { formatDateOnly } from "~/components/format";
 import { card, errorBox } from "~/components/ui";
 import {
   addLogAttachment,
@@ -171,8 +172,8 @@ function LogDetail() {
           <h2 className="text-xl font-bold text-ink">{log.title}</h2>
           <div className="mt-1 text-sm text-ink-muted">
             {log.serviceStartedAt
-              ? `${log.serviceStartedAt.toLocaleDateString()} → ${log.servicedAt.toLocaleDateString()}`
-              : log.servicedAt.toLocaleDateString()}
+              ? `${formatDateOnly(log.serviceStartedAt)} → ${formatDateOnly(log.servicedAt)}`
+              : formatDateOnly(log.servicedAt)}
             {log.type ? ` · ${log.type}` : ""}
             {log.authorName ? ` · logged by ${log.authorName}` : ""}
           </div>

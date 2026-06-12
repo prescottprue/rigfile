@@ -9,6 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
 import { requireAuth } from "~/auth/session.server";
+import { formatDateOnly } from "~/components/format";
 import { btnSecondary, card, errorBox, input, label } from "~/components/ui";
 import {
   addProjectItem,
@@ -306,8 +307,8 @@ function ProjectDetail() {
             >
               🏁{" "}
               {daysUntil(project.targetDate) >= 0
-                ? `${daysUntil(project.targetDate)} days to ${project.targetDate.toLocaleDateString()}`
-                : `target was ${project.targetDate.toLocaleDateString()}`}
+                ? `${daysUntil(project.targetDate)} days to ${formatDateOnly(project.targetDate)}`
+                : `target was ${formatDateOnly(project.targetDate)}`}
             </span>
           ) : null}
           <span className="rounded-full bg-sunken px-2.5 py-1 text-ink-muted">

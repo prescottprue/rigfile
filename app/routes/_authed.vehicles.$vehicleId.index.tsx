@@ -9,6 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
 import { requireAuth } from "~/auth/session.server";
+import { formatDateOnly } from "~/components/format";
 import { statusBadgeClass, statusLabel } from "~/components/reminder-display";
 import {
   btnPrimary,
@@ -406,7 +407,7 @@ function VehicleDashboard() {
                   >
                     <span className="font-medium text-ink">{log.title}</span>
                     <span className="mt-0.5 block text-xs text-ink-muted">
-                      {log.servicedAt.toLocaleDateString()}
+                      {formatDateOnly(log.servicedAt)}
                       {log.odometer != null
                         ? ` · ${Math.round(log.odometer).toLocaleString()} mi`
                         : ""}

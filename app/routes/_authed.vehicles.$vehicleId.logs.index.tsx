@@ -6,6 +6,7 @@ import {
   useParams,
 } from "@tanstack/react-router";
 
+import { formatDateOnly } from "~/components/format";
 import { btnPrimary, btnSecondary, card, chip } from "~/components/ui";
 
 const logsApi = getRouteApi("/_authed/vehicles/$vehicleId/logs");
@@ -120,7 +121,7 @@ function LogsList() {
                   ) : null}
                 </div>
                 <div className="mt-1 text-xs text-ink-muted">
-                  {log.servicedAt.toLocaleDateString()}
+                  {formatDateOnly(log.servicedAt)}
                   {log.type ? ` · ${log.type}` : ""}
                   {log.odometer != null
                     ? ` · ${Math.round(log.odometer).toLocaleString()} mi`
