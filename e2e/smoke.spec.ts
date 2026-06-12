@@ -149,4 +149,47 @@ test.describe("smoke tests", () => {
     // Verify empty state again
     await expect(page.getByText(/nothing logged yet/i)).toBeVisible();
   });
+
+  test("should allow editing a vehicle and adding an odometer reading", async ({
+    page,
+  }) => {
+    testEmail = generateTestEmail();
+
+    // Register + create a vehicle (same flow as the CRUD test).
+    await page.goto("/join");
+    await waitForHydration(page);
+    await page.getByLabel(/email/i).fill(testEmail);
+    await page.getByLabel(/password/i).fill(TEST_PASSWORD);
+    await page.getByRole("button", { name: /create account/i }).click();
+    await page.waitForURL("**/vehicles**");
+
+    await page.getByRole("link", { name: /add vehicle/i }).click();
+    await waitForHydration(page);
+    await page.getByLabel(/^year/i).fill("2024");
+    await page.getByLabel(/^make/i).fill("Jeep");
+    await page.getByLabel(/^model/i).fill("Wrangler");
+    await page.getByRole("button", { name: /^save$/i }).click();
+    await page.waitForURL("**/vehicles/**");
+    await expectNoErrors(page);
+
+    // Edit: rename + add an engine. Works offline from vPIC (free text).
+    await page.getByRole("link", { name: /edit vehicle/i }).click();
+    await waitForHydration(page);
+    await page.getByLabel(/name \(optional\)/i).fill("Rally Rig");
+    await page.getByLabel(/engine \(optional\)/i).fill("3.6L V6");
+    await page.getByRole("button", { name: /save changes/i }).click();
+    await expect(
+      page.getByRole("heading", { name: "Rally Rig" }),
+    ).toBeVisible();
+    await expect(page.getByText("3.6L V6")).toBeVisible();
+    await expectNoErrors(page);
+
+    // Odometer: chip → page → add a reading → both update.
+    await page.getByRole("link", { name: /last odometer/i }).click();
+    await waitForHydration(page);
+    await page.getByLabel(/miles/i).fill("42000");
+    await page.getByRole("button", { name: /add reading/i }).click();
+    await expect(page.getByText("42,000 mi").first()).toBeVisible();
+    await expectNoErrors(page);
+  });
 });
