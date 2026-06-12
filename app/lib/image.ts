@@ -3,6 +3,11 @@
  * Falls back to the original file when the browser can't decode it (e.g.
  * HEIC outside Safari) — server-side size caps still apply, so a failed
  * downscale degrades to a clear server error rather than a broken upload.
+ *
+ * Lives outside the `.client.*` naming pattern on purpose: route components
+ * are statically reachable from the SSR bundle, and merely defining these
+ * browser-API functions there is harmless — they're only called from event
+ * handlers.
  */
 export async function downscaleImage(
   file: File,
