@@ -36,11 +36,16 @@ const updateVehicleFn = createServerFn({ method: "POST" })
     const fields = parseVehicleFields(data);
     if ("error" in fields) return { error: fields.error };
 
+    // Authz + fetch the current row BEFORE touching storage.
+    const existing = await getVehicle({ id: vehicleId, userId });
+    if (!existing || existing.role !== "owner") {
+      return { error: "Only the owner can edit this vehicle" };
+    }
+
     const stored = await storeAvatarUpload(data, userId);
     if ("error" in stored) return { error: stored.error };
 
     try {
-      const existing = await getVehicle({ id: vehicleId, userId });
       const updated = await updateVehicle({
         id: vehicleId,
         userId,
@@ -48,8 +53,13 @@ const updateVehicleFn = createServerFn({ method: "POST" })
         ...(stored.avatarPath ? { avatarPath: stored.avatarPath } : {}),
       });
       // Reap the replaced photo's bytes once the row points at the new key.
-      if (stored.avatarPath && existing?.avatarPath) {
-        await deleteStoredAvatar(existing.avatarPath);
+      if (stored.avatarPath && existing.avatarPath) {
+        try {
+          await deleteStoredAvatar(existing.avatarPath);
+        } catch {
+          // Best-effort reap — the row already points at the new key, so a
+          // cleanup hiccup must not surface as a failed save.
+        }
       }
       return { vehicleId: updated.id };
     } catch (err) {
