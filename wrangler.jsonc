@@ -3,7 +3,9 @@
   "name": "vehicle-work-log",
   "compatibility_date": "2026-01-15",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
+  // Custom entry: wraps the TanStack Start handler in workers-oauth-provider
+  // and exports the LogbookMCP Durable Object (see server.ts).
+  "main": "./server.ts",
   "observability": {
     "enabled": true
   },
@@ -38,7 +40,33 @@
   "ai": {
     "binding": "AI",
     "remote": true
-  }
+  },
+  // OAuth grants/tokens for the MCP server (workers-oauth-provider). The
+  // users table in Postgres stays the source of identity — KV only holds
+  // OAuth artifacts. Create with:
+  //   wrangler kv namespace create OAUTH_KV
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      // REPLACE WITH YOUR KV NAMESPACE ID
+      "id": "00000000000000000000000000000000"
+    }
+  ],
+  // Durable Object backing MCP sessions at /mcp (agents SDK McpAgent).
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MCP_OBJECT",
+        "class_name": "LogbookMCP"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["LogbookMCP"]
+    }
+  ]
   // SESSION_SECRET is a Wrangler secret. Set with:
   //   wrangler secret put SESSION_SECRET
 }
