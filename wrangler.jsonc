@@ -48,8 +48,7 @@
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
-      // REPLACE WITH YOUR KV NAMESPACE ID
-      "id": "00000000000000000000000000000000"
+      "id": "15912863509549d2b3c133efe58db783"
     }
   ],
   // Durable Object backing MCP sessions at /mcp (agents SDK McpAgent).
