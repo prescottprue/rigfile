@@ -18,7 +18,6 @@ import {
   label,
   textarea,
 } from "~/components/ui";
-import { downscaleImage } from "~/lib/image.client";
 import { requireVehicleAccess } from "~/models/member.server";
 import { extractReceiptScan } from "~/scan/extract.server";
 import { createLogWithScan } from "~/scan/import.server";
@@ -136,6 +135,37 @@ export const Route = createFileRoute("/_authed/vehicles/$vehicleId/scan")({
 
 type Step = "capture" | "reading" | "review";
 
+/**
+ * Shrink a phone photo before upload: receipts read fine at 1600px and the
+ * extraction round-trip drops from ~10 MB to a few hundred KB. Falls back to
+ * the original file when the browser can't decode it (e.g. HEIC outside
+ * Safari) — the server cap still applies.
+ */
+async function downscaleForUpload(file: File): Promise<File> {
+  const MAX_DIM = 1600;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.type === "image/jpeg") return file;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>((res) =>
+      canvas.toBlob(res, "image/jpeg", 0.85),
+    );
+    if (!blob) return file;
+    const base = file.name.replace(/\.\w+$/, "") || "scan";
+    return new File([blob], `${base}.jpg`, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 const vehicleApi = getRouteApi("/_authed/vehicles/$vehicleId");
 
 function ScanReceipt() {
@@ -184,10 +214,7 @@ function ScanReceipt() {
   async function onPhotoPicked(picked: File | undefined) {
     if (!picked) return;
     setExtractError(null);
-    const upload = await downscaleImage(picked, {
-      maxDim: 1600,
-      quality: 0.85,
-    });
+    const upload = await downscaleForUpload(picked);
     setFile(upload);
     setPreview((old) => {
       if (old) URL.revokeObjectURL(old);

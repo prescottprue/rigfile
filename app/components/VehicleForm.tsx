@@ -7,7 +7,6 @@ import {
   input,
   label as labelClass,
 } from "~/components/ui";
-import { downscaleImage } from "~/lib/image.client";
 import { decodeVin, getMakes, getModelsForMakeYear } from "~/lib/vpic";
 
 export type VehicleFormValues = {
@@ -31,6 +30,36 @@ const EMPTY: VehicleFormValues = {
 };
 
 type VinStatus = "idle" | "loading" | "done" | "failed";
+
+/**
+ * Downscale a vehicle avatar before upload (canvas resize → JPEG re-encode).
+ * Falls back to the original file when the browser can't decode it.
+ */
+async function downscaleAvatar(file: File): Promise<File> {
+  const MAX_DIM = 1024;
+  const QUALITY = 0.85;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.type === "image/jpeg") return file;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>((res) =>
+      canvas.toBlob(res, "image/jpeg", QUALITY),
+    );
+    if (!blob) return file;
+    const base = file.name.replace(/\.\w+$/, "") || "avatar";
+    return new File([blob], `${base}.jpg`, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
 
 /**
  * Shared create/edit vehicle form. Routes own the server functions; this
@@ -68,6 +97,9 @@ export function VehicleForm({
     value: VehicleFormValues[K],
   ) {
     setValues((v) => ({ ...v, [key]: value }));
+    // Make/year drive the model suggestions — drop the stale list so the
+    // next focus refetches for the new combination.
+    if (key === "make" || key === "year") setModels([]);
   }
 
   async function onVinLookup() {
@@ -110,10 +142,7 @@ export function VehicleForm({
     fd.set("vin", values.vin);
     fd.set("engine", values.engine);
     if (avatarFile && avatarFile.size > 0) {
-      fd.set(
-        "avatar",
-        await downscaleImage(avatarFile, { maxDim: 1024, quality: 0.85 }),
-      );
+      fd.set("avatar", await downscaleAvatar(avatarFile));
     }
     await onSubmit(fd);
   }
