@@ -4,7 +4,11 @@ import { getDb } from "~/db/client";
 import type { NewVehicle, Vehicle } from "~/db/schema";
 import { logs, reminders, vehicleMembers, vehicles } from "~/db/schema";
 import { deleteAttachmentBlobsForLogs } from "~/models/attachment.server";
-import { requireVehicleAccess, type VehicleRole } from "~/models/member.server";
+import {
+  requireVehicleAccess,
+  requireVehicleOwner,
+  type VehicleRole,
+} from "~/models/member.server";
 import { getLatestOdometerByVehicle } from "~/models/odometer.server";
 import type { Storage } from "~/storage.server";
 
@@ -150,6 +154,55 @@ export async function setVehicleVinIfMissing({
     .where(and(eq(vehicles.id, vehicleId), isNull(vehicles.vin)))
     .returning();
   return updated ?? null;
+}
+
+/**
+ * Owner-only edit of the vehicle's identity fields. Unlike the scan
+ * backfill, the owner explicitly editing the VIN here MAY change it.
+ * `avatarPath` is only written when the caller passes it (avatar
+ * replacement) — omitting it leaves the current photo alone.
+ */
+export async function updateVehicle({
+  id,
+  userId,
+  name,
+  make,
+  model,
+  trim,
+  year,
+  vin,
+  engine,
+  avatarPath,
+}: {
+  id: string;
+  userId: string;
+  name: string | null;
+  make: string;
+  model: string;
+  trim: string | null;
+  year: number;
+  vin: string | null;
+  engine: string | null;
+  avatarPath?: string | null;
+}): Promise<Vehicle> {
+  await requireVehicleOwner({ vehicleId: id, userId });
+  const db = await getDb();
+  const [updated] = await db
+    .update(vehicles)
+    .set({
+      name,
+      make,
+      model,
+      trim,
+      year,
+      vin: vin ? vin.trim().toUpperCase() : null,
+      engine,
+      ...(avatarPath !== undefined ? { avatarPath } : {}),
+    })
+    .where(eq(vehicles.id, id))
+    .returning();
+  if (!updated) throw new Error("Failed to update vehicle");
+  return updated;
 }
 
 /** Owner only — `userId` must match the vehicle's owner column. */
