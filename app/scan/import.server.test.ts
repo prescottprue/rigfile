@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createDb } from "~/db/client";
-import { users } from "~/db/schema";
+import { users, vehicles } from "~/db/schema";
 import { listLogAttachments } from "~/models/attachment.server";
 import { createVehicle } from "~/models/vehicle.server";
 import { createLogWithScan } from "~/scan/import.server";
@@ -130,6 +130,50 @@ describe("createLogWithScan", () => {
       vendor: { name: vendorName.toUpperCase() },
     });
     expect(again.log.mechanicId).toBe(result.log.mechanicId);
+  });
+
+  it("backfills the vehicle VIN only when missing", async () => {
+    const vin = "1C4HJXDG5MW612345";
+    await createLogWithScan({
+      userId,
+      vehicleId,
+      log: { title: "VIN backfill test" },
+      vehicleVin: vin,
+    });
+    const [v1] = await db
+      .select({ vin: vehicles.vin })
+      .from(vehicles)
+      .where(eq(vehicles.id, vehicleId));
+    expect(v1?.vin).toBe(vin);
+
+    // A different VIN on a later receipt must NOT overwrite.
+    await createLogWithScan({
+      userId,
+      vehicleId,
+      log: { title: "VIN no-overwrite test" },
+      vehicleVin: "1C4HJXDG5MW699999",
+    });
+    const [v2] = await db
+      .select({ vin: vehicles.vin })
+      .from(vehicles)
+      .where(eq(vehicles.id, vehicleId));
+    expect(v2?.vin).toBe(vin);
+  });
+
+  it("stores the service start date when provided", async () => {
+    const result = await createLogWithScan({
+      userId,
+      vehicleId,
+      log: {
+        title: "Two-date service",
+        serviceStartedAt: new Date("2026-05-01"),
+        servicedAt: new Date("2026-05-03"),
+      },
+    });
+    expect(result.log.serviceStartedAt?.toISOString().slice(0, 10)).toBe(
+      "2026-05-01",
+    );
+    expect(result.log.servicedAt.toISOString().slice(0, 10)).toBe("2026-05-03");
   });
 
   it("skips attachment and reminder when not provided", async () => {

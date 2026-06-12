@@ -4,7 +4,7 @@ import { getDb } from "~/db/client";
 import type { NewVehicle, Vehicle } from "~/db/schema";
 import { logs, reminders, vehicleMembers, vehicles } from "~/db/schema";
 import { deleteAttachmentBlobsForLogs } from "~/models/attachment.server";
-import type { VehicleRole } from "~/models/member.server";
+import { requireVehicleAccess, type VehicleRole } from "~/models/member.server";
 import type { Storage } from "~/storage.server";
 
 export type { Vehicle };
@@ -132,6 +132,33 @@ export async function createVehicle(input: NewVehicle) {
     });
     return vehicle;
   });
+}
+
+/**
+ * Backfill the VIN from a scanned receipt — only when the vehicle doesn't
+ * already have one. Never overwrites: a misread receipt shouldn't clobber a
+ * known-good VIN. Returns the updated vehicle, or null when the VIN was
+ * already set.
+ */
+export async function setVehicleVinIfMissing({
+  vehicleId,
+  userId,
+  vin,
+}: {
+  vehicleId: string;
+  userId: string;
+  vin: string;
+}): Promise<Vehicle | null> {
+  await requireVehicleAccess({ vehicleId, userId });
+  const trimmed = vin.trim().toUpperCase();
+  if (!trimmed) return null;
+  const db = await getDb();
+  const [updated] = await db
+    .update(vehicles)
+    .set({ vin: trimmed })
+    .where(and(eq(vehicles.id, vehicleId), isNull(vehicles.vin)))
+    .returning();
+  return updated ?? null;
 }
 
 /** Owner only — `userId` must match the vehicle's owner column. */

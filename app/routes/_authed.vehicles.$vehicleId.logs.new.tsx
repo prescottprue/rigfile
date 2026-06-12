@@ -69,6 +69,8 @@ const createLogFn = createServerFn({ method: "POST" })
     const cost = costRaw ? Number.parseFloat(costRaw) : null;
     const odometer = odometerRaw ? Number.parseFloat(odometerRaw) : null;
     const servicedAt = servicedAtRaw ? new Date(servicedAtRaw) : new Date();
+    const startedAtRaw = String(data.get("serviceStartedAt") ?? "").trim();
+    const serviceStartedAt = startedAtRaw ? new Date(startedAtRaw) : null;
 
     const shopName = String(data.get("shopName") ?? "").trim();
     const mechanic = shopName
@@ -83,6 +85,10 @@ const createLogFn = createServerFn({ method: "POST" })
       type,
       cost,
       odometer,
+      serviceStartedAt:
+        serviceStartedAt && !Number.isNaN(serviceStartedAt.getTime())
+          ? serviceStartedAt
+          : null,
       servicedAt,
       selfService,
       mechanicId: mechanic?.id ?? null,
@@ -248,21 +254,26 @@ function NewLog() {
           />
         </label>
 
-        <div className="grid grid-cols-2 items-end gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <label className={label}>
-            When
+            Started (optional)
+            <input name="serviceStartedAt" type="date" className={input} />
+          </label>
+          <label className={label}>
+            Completed
             <input name="servicedAt" type="date" className={input} />
           </label>
-          <label className="flex min-h-11 items-center gap-3 text-sm font-medium text-ink">
-            <input
-              type="checkbox"
-              name="selfService"
-              defaultChecked
-              className="h-6 w-6 rounded accent-(--app-accent)"
-            />
-            We did it ourselves
-          </label>
         </div>
+
+        <label className="flex min-h-11 items-center gap-3 text-sm font-medium text-ink">
+          <input
+            type="checkbox"
+            name="selfService"
+            defaultChecked
+            className="h-6 w-6 rounded accent-(--app-accent)"
+          />
+          We did it ourselves
+        </label>
 
         <button
           type="submit"

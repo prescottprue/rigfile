@@ -61,6 +61,11 @@ function VehicleLayout() {
             {v.name && v.trim ? ` ${v.trim}` : !v.name && v.trim ? v.trim : ""}
             {v.role === "member" ? " · shared with you" : ""}
           </p>
+          {v.vin ? (
+            <p className="truncate font-mono text-xs text-ink-muted">
+              VIN {v.vin}
+            </p>
+          ) : null}
         </div>
       </div>
       <nav className="-mx-4 mt-4 flex gap-1 overflow-x-auto border-b border-line px-4 sm:mx-0 sm:px-0">

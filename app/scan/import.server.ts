@@ -15,6 +15,7 @@ import {
 import { createLog, type Log } from "~/models/log.server";
 import { findOrCreateMechanic } from "~/models/mechanic.server";
 import { createReminder } from "~/models/reminder.server";
+import { setVehicleVinIfMissing } from "~/models/vehicle.server";
 import type { Storage } from "~/storage.server";
 
 export type ScanFile = {
@@ -28,6 +29,7 @@ export async function createLogWithScan({
   vehicleId,
   log,
   vendor,
+  vehicleVin,
   scan,
   reminder,
   storage,
@@ -40,6 +42,9 @@ export async function createLogWithScan({
     type?: string | null;
     cost?: number | null;
     odometer?: number | null;
+    /** Drop-off / work-start date, when the receipt shows one. */
+    serviceStartedAt?: Date | null;
+    /** Close/completion date (a single-date receipt fills only this). */
     servicedAt?: Date;
     selfService?: boolean;
   };
@@ -48,6 +53,11 @@ export async function createLogWithScan({
    * find-or-create `mechanics` row so logs are filterable by vendor.
    */
   vendor?: { name: string; location?: string | null } | null;
+  /**
+   * VIN from the receipt — backfilled onto the vehicle only when it doesn't
+   * already have one (never overwrites).
+   */
+  vehicleVin?: string | null;
   /** The captured/scanned image to attach. Omit to just create the log. */
   scan?: ScanFile | null;
   /** Draft a follow-up reminder (from the tech's recommended-work note). */
@@ -62,6 +72,10 @@ export async function createLogWithScan({
   const mechanic = vendor?.name.trim()
     ? await findOrCreateMechanic(vendor)
     : null;
+
+  if (vehicleVin?.trim()) {
+    await setVehicleVinIfMissing({ vehicleId, userId, vin: vehicleVin });
+  }
 
   const created = await createLog({
     userId,

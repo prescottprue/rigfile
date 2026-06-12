@@ -71,6 +71,8 @@ export const vehicles = pgTable("vehicles", {
   model: text().notNull(),
   trim: text(),
   year: integer().notNull(),
+  // 17-char VIN; backfilled from scanned shop receipts when missing.
+  vin: text(),
   avatarPath: text("avatar_path"),
   userId: text("user_id")
     .notNull()
@@ -88,6 +90,14 @@ export const logs = pgTable(
     type: text(),
     cost: doublePrecision(),
     odometer: doublePrecision(),
+    // When the work began (drop-off), if known. A receipt showing a single
+    // date fills only servicedAt — the close/completion date below.
+    serviceStartedAt: timestamp("service_started_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    // The service close/completion date (invoice date). System-side
+    // created_at/updated_at live in `timestamps`.
     servicedAt: timestamp("serviced_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

@@ -1,5 +1,6 @@
 import {
   createFileRoute,
+  getRouteApi,
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
@@ -20,7 +21,11 @@ import {
 import { requireVehicleAccess } from "~/models/member.server";
 import { extractReceiptScan } from "~/scan/extract.server";
 import { createLogWithScan } from "~/scan/import.server";
-import { type ExtractedReceipt, receiptToNotes } from "~/scan/receipt";
+import {
+  type ExtractedReceipt,
+  isValidVinCheckDigit,
+  receiptToNotes,
+} from "~/scan/receipt";
 
 const TYPES = ["Minor", "Major", "Modify", "Check"] as const;
 
@@ -87,6 +92,12 @@ const saveScanFn = createServerFn({ method: "POST" })
     const cost = Number.parseFloat(String(data.get("cost") ?? ""));
     const odometer = Number.parseFloat(String(data.get("odometer") ?? ""));
     const servicedAt = new Date(String(data.get("servicedAt") ?? ""));
+    const startedAt = new Date(String(data.get("serviceStartedAt") ?? ""));
+
+    const saveVin =
+      data.get("saveVin") === "on"
+        ? String(data.get("vin") ?? "").trim()
+        : null;
 
     const { log } = await createLogWithScan({
       userId,
@@ -97,12 +108,14 @@ const saveScanFn = createServerFn({ method: "POST" })
         type,
         cost: Number.isFinite(cost) ? cost : null,
         odometer: Number.isFinite(odometer) ? odometer : null,
+        serviceStartedAt: Number.isNaN(startedAt.getTime()) ? null : startedAt,
         servicedAt: Number.isNaN(servicedAt.getTime())
           ? new Date()
           : servicedAt,
         selfService: data.get("selfService") === "on",
       },
       vendor: shopName ? { name: shopName, location: shopLocation } : null,
+      vehicleVin: saveVin,
       scan: {
         body: new Uint8Array(await checked.file.arrayBuffer()),
         contentType: checked.file.type,
@@ -153,11 +166,14 @@ export const Route = createFileRoute("/_authed/vehicles/$vehicleId/scan")({
 
 type Step = "capture" | "reading" | "review";
 
+const vehicleApi = getRouteApi("/_authed/vehicles/$vehicleId");
+
 function ScanReceipt() {
   const navigate = useNavigate();
   const { vehicleId } = useParams({
     from: "/_authed/vehicles/$vehicleId/scan",
   });
+  const vehicle = vehicleApi.useLoaderData();
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -175,10 +191,12 @@ function ScanReceipt() {
   const [cost, setCost] = useState("");
   const [odometer, setOdometer] = useState("");
   const [servicedAt, setServicedAt] = useState("");
+  const [startedAt, setStartedAt] = useState("");
   const [type, setType] = useState("");
   const [shopName, setShopName] = useState("");
   const [shopLocation, setShopLocation] = useState("");
   const [recommendedWork, setRecommendedWork] = useState<string | null>(null);
+  const [extractedVin, setExtractedVin] = useState<string | null>(null);
 
   function applyReceipt(receipt: ExtractedReceipt) {
     setTitle(receipt.suggestedTitle);
@@ -186,9 +204,11 @@ function ScanReceipt() {
     setCost(receipt.totalCost != null ? String(receipt.totalCost) : "");
     setOdometer(receipt.odometer != null ? String(receipt.odometer) : "");
     setServicedAt(receipt.serviceDate ?? "");
+    setStartedAt(receipt.serviceStartDate ?? "");
     setShopName(receipt.shopName ?? "");
     setShopLocation(receipt.shopLocation ?? "");
     setRecommendedWork(receipt.recommendedWork);
+    setExtractedVin(receipt.vin);
   }
 
   async function onPhotoPicked(picked: File | undefined) {
@@ -422,9 +442,19 @@ function ScanReceipt() {
             />
           </label>
 
-          <div className="grid grid-cols-2 items-end gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <label className={label}>
-              When
+              Started (optional)
+              <input
+                name="serviceStartedAt"
+                type="date"
+                value={startedAt}
+                onChange={(e) => setStartedAt(e.target.value)}
+                className={input}
+              />
+            </label>
+            <label className={label}>
+              Completed
               <input
                 name="servicedAt"
                 type="date"
@@ -433,15 +463,41 @@ function ScanReceipt() {
                 className={input}
               />
             </label>
-            <label className="flex min-h-11 items-center gap-3 text-sm font-medium text-ink">
+          </div>
+
+          <label className="flex min-h-11 items-center gap-3 text-sm font-medium text-ink">
+            <input
+              type="checkbox"
+              name="selfService"
+              className="h-6 w-6 rounded accent-(--app-accent)"
+            />
+            We did it ourselves
+          </label>
+
+          {extractedVin && !vehicle.vin ? (
+            <label
+              className={`${card} flex items-start gap-3 p-4 text-sm text-ink`}
+            >
               <input
                 type="checkbox"
-                name="selfService"
-                className="h-6 w-6 rounded accent-(--app-accent)"
+                name="saveVin"
+                defaultChecked={isValidVinCheckDigit(extractedVin)}
+                className="mt-0.5 h-6 w-6 shrink-0 rounded accent-(--app-accent)"
               />
-              We did it ourselves
+              <span>
+                <span className="font-semibold">Save the VIN</span> from this
+                receipt to the vehicle:{" "}
+                <span className="font-mono text-xs">{extractedVin}</span>
+                {!isValidVinCheckDigit(extractedVin) ? (
+                  <span className="mt-1 block text-xs text-warn">
+                    Checksum doesn't verify — compare against the receipt before
+                    saving (the camera may have misread a character).
+                  </span>
+                ) : null}
+                <input type="hidden" name="vin" value={extractedVin} />
+              </span>
             </label>
-          </div>
+          ) : null}
 
           {recommendedWork ? (
             <label
