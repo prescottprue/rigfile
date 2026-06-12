@@ -118,7 +118,7 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    `logs.service_started_at` + `serviced_at`: service start and
    close/completion dates — a single-date receipt fills only the close;
    `odometer_readings`: standalone mileage entries (odometer, read_at, note,
-   author) — "last odometer" is latest-by-date across logs + manual readings,
+   user_id) — "last odometer" is latest-by-date across logs + manual readings,
    ties broken by higher miles)
 2. `app/db/client.ts` — postgres-js client, runtime-aware
 3. `app/db/migrations/` — generated SQL (do not edit by hand unless
@@ -162,7 +162,8 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
     `_authed.vehicles.$vehicleId.odometer.tsx` (current reading + source +
     quick-add form + history with author-or-owner delete), and
     `_authed.vehicles.$vehicleId.edit.tsx` (owner-only vehicle edit:
-    name/year/make/model/trim/engine/VIN/avatar)
+    name/year/make/model/trim/engine/VIN/avatar); `app/components/VehicleForm.tsx`
+    is the shared create/edit form (vPIC assists + avatar downscale)
 11. `wrangler.jsonc` — Cloudflare Workers config (Hyperdrive, R2, Workers
     AI, secrets). The `ai` binding is remote-only; dev keeps remote
     bindings OFF unless `CF_REMOTE_BINDINGS=1` (see vite.config.ts), so
