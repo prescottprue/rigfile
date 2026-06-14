@@ -30,6 +30,7 @@ const tabs = [
   { to: "/vehicles/$vehicleId/logs", label: "Logs", exact: false },
   { to: "/vehicles/$vehicleId/reminders", label: "Reminders", exact: false },
   { to: "/vehicles/$vehicleId/projects", label: "Projects", exact: false },
+  { to: "/vehicles/$vehicleId/documents", label: "Documents", exact: false },
 ] as const;
 
 function VehicleLayout() {

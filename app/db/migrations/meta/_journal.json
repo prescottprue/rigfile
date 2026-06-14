@@ -50,6 +50,13 @@
       "when": 1781236125214,
       "tag": "0006_noisy_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781472693558,
+      "tag": "0007_swift_santa_claus",
+      "breakpoints": true
     }
   ]
 }

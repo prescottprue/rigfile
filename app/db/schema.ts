@@ -76,6 +76,15 @@ export const vehicles = pgTable("vehicles", {
   // Free-text engine description, e.g. "3.6L V6 Pentastar". Filled by the
   // vPIC VIN decode on the vehicle form, always user-editable.
   engine: text(),
+  // Acquisition details. `purchasedAt` is date-only (UTC midnight from an
+  // <input type="date">) — render with formatDateOnly. `seller` is the
+  // dealer or private party. Owner-editable on the Documents tab; the actual
+  // contract / title scans live in `vehicle_documents`.
+  purchasedAt: timestamp("purchased_at", { withTimezone: true, mode: "date" }),
+  purchasePrice: doublePrecision("purchase_price"),
+  purchaseOdometer: doublePrecision("purchase_odometer"),
+  seller: text(),
+  purchaseNote: text("purchase_note"),
   avatarPath: text("avatar_path"),
   userId: text("user_id")
     .notNull()
@@ -274,6 +283,45 @@ export const logAttachments = pgTable(
   (t) => [index("log_attachments_log_idx").on(t.logId)],
 );
 
+// Documents attached directly to a vehicle (not a service log): the purchase
+// contract, title, registration, insurance card, bill of sale. `kind` tags
+// the document (vocab in document.shared.ts); `extractedText` is OCR pulled
+// from image uploads (best-effort, see transcribeImage) and feeds the
+// generated `search_tsv` GIN index so crew can search words inside scans.
+export const vehicleDocuments = pgTable(
+  "vehicle_documents",
+  {
+    id: cuid2().primaryKey(),
+    vehicleId: text("vehicle_id")
+      .notNull()
+      .references(() => vehicles.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    path: text().notNull(),
+    contentType: text("content_type").notNull(),
+    originalName: text("original_name"),
+    kind: text().notNull().default("other"),
+    // Optional human label, e.g. "2024 registration renewal".
+    label: text(),
+    // OCR transcription of an image document, filled on upload when a vision
+    // backend is reachable. Null for PDFs and when transcription is skipped.
+    extractedText: text("extracted_text"),
+    uploadedById: text("uploaded_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    searchTsv: tsvector("search_tsv").generatedAlwaysAs(
+      (): SQL =>
+        sql`to_tsvector('english', coalesce(${vehicleDocuments.label}, '') || ' ' || coalesce(${vehicleDocuments.originalName}, '') || ' ' || coalesce(${vehicleDocuments.extractedText}, ''))`,
+    ),
+    ...timestamps,
+  },
+  (t) => [
+    index("vehicle_documents_vehicle_idx").on(t.vehicleId),
+    index("vehicle_documents_search_idx").using("gin", t.searchTsv),
+  ],
+);
+
 export const tags = pgTable(
   "tags",
   {
@@ -362,5 +410,7 @@ export type ProjectItem = typeof projectItems.$inferSelect;
 export type NewProjectItem = typeof projectItems.$inferInsert;
 export type LogAttachment = typeof logAttachments.$inferSelect;
 export type NewLogAttachment = typeof logAttachments.$inferInsert;
+export type VehicleDocument = typeof vehicleDocuments.$inferSelect;
+export type NewVehicleDocument = typeof vehicleDocuments.$inferInsert;
 export type OdometerReading = typeof odometerReadings.$inferSelect;
 export type NewOdometerReading = typeof odometerReadings.$inferInsert;

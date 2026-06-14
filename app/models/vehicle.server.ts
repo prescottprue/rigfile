@@ -4,6 +4,7 @@ import { getDb } from "~/db/client";
 import type { NewVehicle, Vehicle } from "~/db/schema";
 import { logs, reminders, vehicleMembers, vehicles } from "~/db/schema";
 import { deleteAttachmentBlobsForLogs } from "~/models/attachment.server";
+import { deleteDocumentBlobsForVehicles } from "~/models/document.server";
 import {
   requireVehicleAccess,
   requireVehicleOwner,
@@ -205,6 +206,45 @@ export async function updateVehicle({
   return updated;
 }
 
+/**
+ * Owner-only edit of the vehicle's acquisition details. Mirrors the
+ * owner-only `updateVehicle` (these fields sit alongside VIN/engine on the
+ * vehicle row). Members see the details read-only on the Documents tab.
+ */
+export async function updatePurchase({
+  id,
+  userId,
+  purchasedAt,
+  purchasePrice,
+  purchaseOdometer,
+  seller,
+  purchaseNote,
+}: {
+  id: string;
+  userId: string;
+  purchasedAt: Date | null;
+  purchasePrice: number | null;
+  purchaseOdometer: number | null;
+  seller: string | null;
+  purchaseNote: string | null;
+}): Promise<Vehicle> {
+  await requireVehicleOwner({ vehicleId: id, userId });
+  const db = await getDb();
+  const [updated] = await db
+    .update(vehicles)
+    .set({
+      purchasedAt,
+      purchasePrice,
+      purchaseOdometer,
+      seller: seller?.trim() || null,
+      purchaseNote: purchaseNote?.trim() || null,
+    })
+    .where(eq(vehicles.id, id))
+    .returning();
+  if (!updated) throw new Error("Failed to update purchase details");
+  return updated;
+}
+
 /** Owner only — `userId` must match the vehicle's owner column. */
 export async function deleteVehicle({
   id,
@@ -230,6 +270,18 @@ export async function deleteVehicle({
     logIds: logRows.map((r) => r.id),
     ...(storage ? { storage } : {}),
   });
+  // Reap vehicle-document bytes too — only when this user owns the vehicle,
+  // matching the scoped delete below (a non-owner gets a no-op either way).
+  const owned = await db
+    .select({ id: vehicles.id })
+    .from(vehicles)
+    .where(and(eq(vehicles.id, id), eq(vehicles.userId, userId)));
+  if (owned.length > 0) {
+    await deleteDocumentBlobsForVehicles({
+      vehicleIds: [id],
+      ...(storage ? { storage } : {}),
+    });
+  }
   return db
     .delete(vehicles)
     .where(and(eq(vehicles.id, id), eq(vehicles.userId, userId)));
