@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 
 import { requireAuth } from "~/auth/session.server";
 import { formatDateOnly } from "~/components/format";
+import { ImageCropper } from "~/components/ImageCropper";
 import {
   btnPrimary,
   btnSecondary,
@@ -352,14 +353,15 @@ function DocumentsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<string>("purchase");
   const [docLabel, setDocLabel] = useState("");
+  const [selected, setSelected] = useState<File[]>([]);
+  const [cropIndex, setCropIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(q);
 
   async function onUpload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const picked = fileRef.current?.files;
-    if (!picked || picked.length === 0) {
+    if (selected.length === 0) {
       setError("Choose a file to upload");
       return;
     }
@@ -369,7 +371,7 @@ function DocumentsPage() {
     fd.set("vehicleId", v.id);
     fd.set("kind", kind);
     fd.set("label", docLabel.trim());
-    for (const file of picked) fd.append("files", file);
+    for (const file of selected) fd.append("files", file);
     try {
       const result = await uploadDocumentFn({ data: fd });
       if ("error" in result && result.error) {
@@ -377,6 +379,7 @@ function DocumentsPage() {
         return;
       }
       setDocLabel("");
+      setSelected([]);
       if (fileRef.current) fileRef.current.value = "";
       await router.invalidate();
     } catch (err) {
@@ -432,12 +435,62 @@ function DocumentsPage() {
           type="file"
           accept="image/*,application/pdf"
           multiple
+          onChange={(e) => {
+            setSelected(Array.from(e.target.files ?? []));
+            setError(null);
+          }}
           className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-xl file:border-0 file:bg-sunken file:px-4 file:py-2 file:font-semibold file:text-ink"
         />
+        {selected.length > 0 ? (
+          <ul className="divide-y divide-line rounded-xl border border-line">
+            {selected.map((f, i) => (
+              <li
+                // biome-ignore lint/suspicious/noArrayIndexKey: selection is a positional list, no stable id
+                key={`${f.name}-${i}`}
+                className="flex items-center gap-3 px-3 py-2 text-sm"
+              >
+                <span className="min-w-0 flex-1 truncate text-ink">
+                  {f.name}
+                </span>
+                {f.type.startsWith("image/") ? (
+                  <button
+                    type="button"
+                    className="shrink-0 font-semibold text-accent hover:underline"
+                    onClick={() => setCropIndex(i)}
+                  >
+                    Crop
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="shrink-0 font-semibold text-danger hover:underline"
+                  onClick={() =>
+                    setSelected((prev) => prev.filter((_, j) => j !== i))
+                  }
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <button type="submit" disabled={uploading} className={btnPrimary}>
           {uploading ? "Uploading…" : "Upload"}
         </button>
       </form>
+
+      {cropIndex != null && selected[cropIndex] ? (
+        <ImageCropper
+          file={selected[cropIndex]}
+          onCancel={() => setCropIndex(null)}
+          onConfirm={(cropped) => {
+            setSelected((prev) =>
+              prev.map((f, j) => (j === cropIndex ? cropped : f)),
+            );
+            setCropIndex(null);
+          }}
+        />
+      ) : null}
 
       <div className={`${card} p-5`}>
         <div className="flex items-center justify-between gap-3">
