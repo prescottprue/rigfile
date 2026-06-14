@@ -82,3 +82,44 @@ export async function extractReceipt(
 
   return normalizeReceipt(parsed);
 }
+
+const TRANSCRIBE_PROMPT =
+  "Transcribe every piece of text visible in this document image exactly as " +
+  "written. Output only the transcribed text, no commentary.";
+
+/**
+ * Plain-text OCR of one image via the local vision model — no schema, just
+ * the transcription. Used to make uploaded vehicle documents searchable on
+ * Node self-host / dev. Throws on transport/model errors; the caller treats
+ * a failure as "no extracted text".
+ */
+export async function transcribeImage(
+  image: Uint8Array,
+  config: OllamaConfig = DEFAULT_OLLAMA,
+): Promise<string | null> {
+  const base64 = Buffer.from(image).toString("base64");
+
+  const res = await fetch(`${config.host}/api/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      model: config.model,
+      stream: false,
+      messages: [
+        { role: "user", content: TRANSCRIBE_PROMPT, images: [base64] },
+      ],
+      options: { temperature: 0 },
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(
+      `Ollama ${res.status} ${res.statusText}${detail ? `: ${detail}` : ""}`,
+    );
+  }
+
+  const data = (await res.json()) as OllamaChatResponse;
+  if (data.error) throw new Error(`Ollama error: ${data.error}`);
+  return data.message?.content?.trim() ?? null;
+}

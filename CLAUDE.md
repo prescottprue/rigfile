@@ -123,6 +123,12 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    `vehicles.vin`: backfilled from receipts, never overwritten;
    `vehicles.engine`: free-text engine description, filled by vPIC decode,
    always user-editable;
+   `vehicles.purchasedAt`/`purchasePrice`/`purchaseOdometer`/`seller`/
+   `purchaseNote`: owner-editable acquisition details (Documents tab);
+   `vehicle_documents`: files attached directly to a vehicle (purchase
+   contract, title, registration, insurance), tagged by `kind` (vocab in
+   `document.shared.ts`), with `extracted_text` (best-effort OCR on image
+   upload) feeding a generated `search_tsv` GIN index for word-in-scan search;
    `logs.service_started_at` + `serviced_at`: service start and
    close/completion dates — a single-date receipt fills only the close;
    `odometer_readings`: standalone mileage entries (odometer, read_at, note,
@@ -143,6 +149,10 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    client code can't import values from `.server.ts` modules),
    `attachment.server.ts` (log attachments — uploads via storage layer +
    row insert, access checked against the log's vehicle),
+   `document.server.ts` (vehicle documents — upload + best-effort OCR via
+   `transcribeImage`, FTS via `searchVehicleDocuments`, retag, uploader-or-
+   owner delete, blob reap on vehicle delete; kind vocab in
+   `document.shared.ts` because client routes can't import from `.server.ts`),
    `mechanic.server.ts` (vendors/shops — case-insensitive find-or-create;
    logs link via `logs.mechanicId`, the logs list filters by vendor),
    `odometer.server.ts` (union latest across logs + manual readings, batch
@@ -161,7 +171,9 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
 9. `app/scan/` — Scan Bay. `receipt.ts` is the isomorphic extraction
    contract (JSON schema + prompt + `normalizeReceipt`/`receiptToNotes`);
    `extract.server.ts` is the runtime seam (Workers AI binding on CF,
-   Ollama fallback on Node — `ollama.server.ts`); `import.server.ts` is
+   Ollama fallback on Node — `ollama.server.ts`; also exports
+   `transcribeImage`, the best-effort plain-text OCR that makes uploaded
+   vehicle documents searchable); `import.server.ts` is
    `createLogWithScan` (log + attachment + optional reminder), shared by
    the batch CLI (`scripts/scan-bay/`) and the in-app scan page.
 10. `app/routes/*` — file-based routes, including `/files/$` streaming
@@ -170,7 +182,11 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
     `_authed.vehicles.$vehicleId.odometer.tsx` (current reading + source +
     quick-add form + history with author-or-owner delete),
     `_authed.vehicles.$vehicleId.edit.tsx` (owner-only vehicle edit:
-    name/year/make/model/trim/engine/VIN/avatar), and `authorize.tsx`
+    name/year/make/model/trim/engine/VIN/avatar),
+    `_authed.vehicles.$vehicleId.documents.tsx` (Documents tab: owner-only
+    purchase-details panel + tagged document upload + FTS search box over
+    OCR'd text/label/filename + document list with retag and uploader-or-
+    owner delete), and `authorize.tsx`
     (OAuth consent for the MCP server — server handlers only, renders
     plain HTML, reuses session auth); `app/components/VehicleForm.tsx`
     is the shared create/edit form (vPIC assists + avatar downscale)

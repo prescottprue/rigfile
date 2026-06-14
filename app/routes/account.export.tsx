@@ -12,6 +12,7 @@ import {
   parts,
   tags,
   users,
+  vehicleDocuments,
   vehicles,
 } from "~/db/schema";
 
@@ -51,7 +52,7 @@ export const Route = createFileRoute("/account/export")({
           ),
         );
 
-        const [tagJoins, partJoins, mechanicRows, readingRows] =
+        const [tagJoins, partJoins, mechanicRows, readingRows, documentRows] =
           await Promise.all([
             logIds.length
               ? db
@@ -77,6 +78,12 @@ export const Route = createFileRoute("/account/export")({
                   .from(odometerReadings)
                   .where(inArray(odometerReadings.vehicleId, vehicleIds))
               : Promise.resolve([]),
+            vehicleIds.length
+              ? db
+                  .select()
+                  .from(vehicleDocuments)
+                  .where(inArray(vehicleDocuments.vehicleId, vehicleIds))
+              : Promise.resolve([]),
           ]);
 
         const tagIds = Array.from(new Set(tagJoins.map((j) => j.tagId)));
@@ -101,6 +108,10 @@ export const Route = createFileRoute("/account/export")({
           })),
           logs: userLogs,
           odometerReadings: readingRows,
+          vehicleDocuments: documentRows.map((d) => ({
+            ...d,
+            fileUrl: `/files/${d.path}`,
+          })),
           mechanics: mechanicRows,
           tags: tagRows,
           parts: partRows,

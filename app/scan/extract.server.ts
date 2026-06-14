@@ -10,7 +10,10 @@
 
 import { Buffer } from "node:buffer";
 
-import { extractReceipt as extractWithOllama } from "~/scan/ollama.server";
+import {
+  extractReceipt as extractWithOllama,
+  transcribeImage as transcribeWithOllama,
+} from "~/scan/ollama.server";
 import {
   EXTRACTION_PROMPT,
   type ExtractedReceipt,
@@ -199,6 +202,70 @@ async function runWorkersAiExtraction(
       max_tokens: 2048,
     });
     return normalizeReceipt(parseWorkersAiResponse(structured));
+  }
+}
+
+const TRANSCRIBE_PROMPT =
+  "Transcribe every piece of text visible in this document image exactly as " +
+  "written — names, dates, amounts, policy/VIN/plate numbers, addresses, and " +
+  "any fine print. Output only the transcribed text, no commentary. If the " +
+  "image contains no legible text, respond with an empty string.";
+
+/**
+ * Best-effort OCR for a vehicle document image, used to make scans
+ * full-text searchable. Returns the transcribed text, or null when no vision
+ * backend is reachable or the model returns nothing. Never throws: a failed
+ * transcription just means the document is searchable by label/filename only,
+ * so callers store the file regardless.
+ */
+export async function transcribeImage(
+  image: Uint8Array,
+  contentType = "image/jpeg",
+): Promise<string | null> {
+  const workersAi = await getWorkersAi();
+
+  if (workersAi) {
+    const dataUrl = `data:${contentType};base64,${Buffer.from(image).toString("base64")}`;
+    const run = () =>
+      workersAi.ai.run(workersAi.model, {
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: TRANSCRIBE_PROMPT },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+        temperature: 0,
+        max_tokens: 2048,
+      });
+    try {
+      const text = workersAiResponseText(await run());
+      if (text?.trim()) return text.trim();
+    } catch (err) {
+      if (isLicenseAgreementError(err)) {
+        try {
+          await workersAi.ai.run(workersAi.model, { prompt: "agree" });
+          const text = workersAiResponseText(await run());
+          if (text?.trim()) return text.trim();
+        } catch {
+          // fall through to the Ollama attempt / null
+        }
+      }
+    }
+  }
+
+  // Same reasoning as extractReceiptScan: localhost Ollama only exists on
+  // Node self-host or local dev. On deployed Workers, skip it.
+  const isDev = (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
+  if (workersAi && !isDev) return null;
+
+  try {
+    const text = await transcribeWithOllama(image);
+    return text?.trim() ? text.trim() : null;
+  } catch {
+    return null;
   }
 }
 

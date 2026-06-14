@@ -13,6 +13,13 @@ What it does today:
   note) supplement work-log odometer readings. The dashboard chip shows the
   latest reading with its date; the odometer page lists the full history with
   source (linked service log or manual) and lets any crew member add a reading.
+- **Vehicle documents & purchase records** — a Documents tab on every
+  vehicle holds the paperwork: purchase contract, title, registration,
+  insurance, bill of sale. Upload images or PDFs, tag each by type, and
+  record structured purchase details (date, price, seller, odometer at
+  purchase). Uploaded photos are OCR'd locally on save, so you can
+  **search the words inside a scan** — find a policy number or VIN that
+  only appears in the image. Documents ship in the JSON export too.
 - **Crew sharing** — invite someone by email to any vehicle; members see
   and log everything on shared vehicles (invites for new emails are
   claimed automatically at signup).
@@ -338,6 +345,7 @@ out of the client bundle.
   "vehicles": [{ ..., "avatarUrl": "/files/..." }],
   "logs": [ ... ],
   "odometerReadings": [ ... ],
+  "vehicleDocuments": [{ ..., "fileUrl": "/files/..." }],
   "mechanics": [ ... ],
   "tags": [ ... ],
   "parts": [ ... ],
