@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { ImageCropper } from "~/components/ImageCropper";
 import {
   btnPrimary,
   btnSecondary,
@@ -59,9 +60,22 @@ export function VehicleForm({
     ...initialValues,
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  // Raw photo awaiting a square crop before it becomes the avatar.
+  const [cropping, setCropping] = useState<File | null>(null);
   const [vinStatus, setVinStatus] = useState<VinStatus>("idle");
   const [makes, setMakes] = useState<string[]>([]);
   const [models, setModels] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(avatarFile);
+    setAvatarPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [avatarFile]);
 
   function set<K extends keyof VehicleFormValues>(
     key: K,
@@ -228,10 +242,10 @@ export function VehicleForm({
         />
       </label>
 
-      {currentAvatarUrl ? (
+      {avatarPreview || currentAvatarUrl ? (
         <img
-          src={currentAvatarUrl}
-          alt="Current vehicle"
+          src={avatarPreview ?? currentAvatarUrl ?? ""}
+          alt={avatarPreview ? "New vehicle photo" : "Current vehicle"}
           className="h-20 w-20 rounded-2xl object-cover"
         />
       ) : null}
@@ -240,7 +254,11 @@ export function VehicleForm({
         <input
           type="file"
           accept="image/*"
-          onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            const picked = e.target.files?.[0];
+            e.currentTarget.value = "";
+            if (picked) setCropping(picked);
+          }}
           className="mt-1 block w-full text-sm text-ink"
         />
       </label>
@@ -248,6 +266,18 @@ export function VehicleForm({
       <button type="submit" disabled={pending} className={btnPrimary}>
         {pending ? "Saving…" : submitLabel}
       </button>
+
+      {cropping ? (
+        <ImageCropper
+          file={cropping}
+          aspect={1}
+          onCancel={() => setCropping(null)}
+          onConfirm={(cropped) => {
+            setCropping(null);
+            setAvatarFile(cropped);
+          }}
+        />
+      ) : null}
     </form>
   );
 }

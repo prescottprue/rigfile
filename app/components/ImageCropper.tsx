@@ -37,13 +37,18 @@ function cornerStyle(c: Corner): React.CSSProperties {
  * finger and a mouse behave the same. Returns a cropped JPEG via `onConfirm`,
  * or `onCancel` if dismissed. Browser-only — render it from an event handler
  * (e.g. after a file is picked), never during SSR.
+ *
+ * Pass `aspect` (width / height) to lock the box to a fixed ratio — e.g. `1`
+ * for a square avatar crop. Omit it for a free-form crop.
  */
 export function ImageCropper({
   file,
+  aspect,
   onCancel,
   onConfirm,
 }: {
   file: File;
+  aspect?: number;
   onCancel: () => void;
   onConfirm: (cropped: File) => void;
 }) {
@@ -68,12 +73,26 @@ export function ImageCropper({
   function onImgLoad() {
     const img = imgRef.current;
     if (!img) return;
-    const w = img.clientWidth;
-    const h = img.clientHeight;
-    setBox({ w, h });
-    // Start a touch inside each edge so every handle is immediately grabbable.
+    const bw = img.clientWidth;
+    const bh = img.clientHeight;
+    setBox({ w: bw, h: bh });
+
+    if (aspect) {
+      // Largest aspect-locked box that fits, inset slightly and centered.
+      let w = bw;
+      let h = w / aspect;
+      if (h > bh) {
+        h = bh;
+        w = h * aspect;
+      }
+      w *= 0.9;
+      h *= 0.9;
+      setRect({ x: (bw - w) / 2, y: (bh - h) / 2, w, h });
+      return;
+    }
+    // Free-form: start inset from each edge so every handle is grabbable.
     const m = 0.06;
-    setRect({ x: w * m, y: h * m, w: w * (1 - 2 * m), h: h * (1 - 2 * m) });
+    setRect({ x: bw * m, y: bh * m, w: bw * (1 - 2 * m), h: bh * (1 - 2 * m) });
   }
 
   function startDrag(e: React.PointerEvent, mode: DragMode) {
@@ -96,8 +115,28 @@ export function ImageCropper({
       return;
     }
 
+    // Resize anchored at the opposite corner (which stays put).
     const east = d.mode === "ne" || d.mode === "se";
     const south = d.mode === "se" || d.mode === "sw";
+
+    if (aspect) {
+      // Drive off width, derive height, and cap to the space available from
+      // the anchor so the box never leaves the image or inverts.
+      const maxW = east ? box.w - s.x : s.x + s.w;
+      const maxH = south ? box.h - s.y : s.y + s.h;
+      const minW = Math.max(MIN, MIN * aspect);
+      let w = east ? s.w + dx : s.w - dx;
+      w = Math.max(minW, Math.min(w, maxW, maxH * aspect));
+      const h = w / aspect;
+      setRect({
+        x: east ? s.x : s.x + s.w - w,
+        y: south ? s.y : s.y + s.h - h,
+        w,
+        h,
+      });
+      return;
+    }
+
     let { x, y, w, h } = s;
     if (east) {
       w = s.w + dx;
