@@ -4,7 +4,9 @@ import {
   Outlet,
   Scripts,
 } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
+import { ErrorState } from "~/components/ErrorState";
 import stylesHref from "../styles.css?url";
 
 // Applied before paint so dark mode doesn't flash light on reload. Falls back
@@ -24,10 +26,31 @@ export const Route = createRootRoute({
     ],
     links: [{ rel: "stylesheet", href: stylesHref }],
   }),
-  component: RootDocument,
+  errorComponent: ({ reset }) => (
+    <RootDocument>
+      <ErrorState
+        title="Something threw a rod"
+        message="An unexpected error stalled this page. Try again, or head back to your garage."
+        onReset={reset}
+      />
+    </RootDocument>
+  ),
+  notFoundComponent: () => (
+    <RootDocument>
+      <ErrorState
+        title="Took a wrong turn"
+        message="We couldn't find that page — it may have moved or never existed. Let's get you back on the road."
+      />
+    </RootDocument>
+  ),
+  component: () => (
+    <RootDocument>
+      <Outlet />
+    </RootDocument>
+  ),
 });
 
-function RootDocument() {
+function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -36,7 +59,7 @@ function RootDocument() {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="bg-surface text-ink antialiased">
-        <Outlet />
+        {children}
         <Scripts />
       </body>
     </html>

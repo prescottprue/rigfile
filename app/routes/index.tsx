@@ -5,7 +5,15 @@ import { Logo } from "~/components/Logo";
 import { btnPrimary, btnSecondary, card } from "~/components/ui";
 
 export const Route = createFileRoute("/")({
-  loader: async () => ({ user: await getCurrentUserFn() }),
+  // Public page: a failed/absent session must never crash it — degrade to
+  // the logged-out view if the user lookup throws (e.g. stale cookie).
+  loader: async () => {
+    try {
+      return { user: await getCurrentUserFn() };
+    } catch {
+      return { user: null };
+    }
+  },
   component: Home,
 });
 
