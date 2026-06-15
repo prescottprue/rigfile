@@ -6,6 +6,13 @@ import { requireAuth } from "~/auth/session.server";
 import { ImageCropper } from "~/components/ImageCropper";
 import { btnSecondary, card } from "~/components/ui";
 import { downscaleImage } from "~/lib/image";
+import {
+  type DriveConnectionStatus,
+  type DriveSyncSummary,
+  disconnectDrive,
+  getDriveConnectionStatus,
+  syncToDrive,
+} from "~/models/google-drive.server";
 import { changePassword, updateUser } from "~/models/user.server";
 import { getStorage } from "~/storage.server";
 
@@ -72,12 +79,38 @@ const changePasswordFn = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
+const getDriveStatusFn = createServerFn({ method: "GET" }).handler(async () => {
+  const userId = await requireAuth();
+  return getDriveConnectionStatus(userId);
+});
+
+const syncDriveFn = createServerFn({ method: "POST" }).handler(
+  async (): Promise<{ summary: DriveSyncSummary } | { error: string }> => {
+    const userId = await requireAuth();
+    try {
+      return { summary: await syncToDrive(userId) };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Sync failed" };
+    }
+  },
+);
+
+const disconnectDriveFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const userId = await requireAuth();
+    await disconnectDrive(userId);
+    return { success: true as const };
+  },
+);
+
 export const Route = createFileRoute("/_authed/profile")({
+  loader: async () => ({ drive: await getDriveStatusFn() }),
   component: ProfilePage,
 });
 
 function ProfilePage() {
   const { user } = Route.useRouteContext();
+  const { drive } = Route.useLoaderData();
 
   return (
     <section className="space-y-10">
@@ -88,8 +121,164 @@ function ProfilePage() {
       <hr className="border-slate-200" />
       <ConnectClaude />
       <hr className="border-slate-200" />
+      <GoogleDrive status={drive} />
+      <hr className="border-slate-200" />
       <YourData />
     </section>
+  );
+}
+
+function GoogleDrive({ status }: { status: DriveConnectionStatus }) {
+  const router = useRouter();
+  const [banner, setBanner] = useState<string | null>(null);
+  const [pending, setPending] = useState<null | "sync" | "disconnect">(null);
+  const [result, setResult] = useState<DriveSyncSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Surface the ?drive=… outcome from the OAuth redirect, then strip it from
+  // the URL so a refresh doesn't re-show the banner.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const outcome = params.get("drive");
+    if (!outcome) return;
+    setBanner(
+      {
+        connected: "Google Drive connected.",
+        denied: "Connection cancelled.",
+        unconfigured: "Google Drive sync isn't configured on this server.",
+        error: "Something went wrong connecting Google Drive. Try again.",
+      }[outcome] ?? null,
+    );
+    params.delete("drive");
+    const qs = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (qs ? `?${qs}` : ""),
+    );
+  }, []);
+
+  async function runSync() {
+    setPending("sync");
+    setError(null);
+    setResult(null);
+    try {
+      const res = await syncDriveFn();
+      if ("error" in res) setError(res.error);
+      else {
+        setResult(res.summary);
+        await router.invalidate();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function disconnect() {
+    setPending("disconnect");
+    setError(null);
+    setResult(null);
+    try {
+      await disconnectDriveFn();
+      await router.invalidate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to disconnect");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-medium text-slate-900">
+        ☁️ Sync to Google Drive
+      </h2>
+      <div className={`${card} mt-4 max-w-lg p-5`}>
+        <p className="text-sm text-ink-muted">
+          Keep a copy of your records in your own Google Drive. Logbook creates
+          a single <span className="font-medium text-ink">Logbook</span> folder
+          and copies your vehicle documents, receipt scans, and a full data
+          export into it. Using Google's <code>drive.file</code> access, Logbook
+          can only see files it created here — never the rest of your Drive.
+        </p>
+
+        {banner ? (
+          <p className="mt-3 rounded border border-line bg-sunken p-2 text-sm text-ink">
+            {banner}
+          </p>
+        ) : null}
+
+        {!status.configured ? (
+          <p className="mt-4 text-sm text-ink-muted">
+            Google Drive sync isn't configured on this server.
+          </p>
+        ) : status.connected ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-ink">
+              Connected
+              {status.googleEmail ? (
+                <>
+                  {" as "}
+                  <span className="font-medium">{status.googleEmail}</span>
+                </>
+              ) : null}
+              .
+            </p>
+            <p className="text-xs text-ink-muted">
+              {status.lastSyncedAt
+                ? `Last synced ${new Date(status.lastSyncedAt).toLocaleString()}`
+                : "Not synced yet."}
+            </p>
+
+            {error ? (
+              <p className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">
+                {error}
+              </p>
+            ) : null}
+            {result ? (
+              <p className="rounded border border-green-200 bg-green-50 p-2 text-sm text-green-700">
+                Synced: {result.created} added, {result.updated} updated,{" "}
+                {result.skipped} already current
+                {result.failed > 0 ? `, ${result.failed} failed` : ""}.
+                {result.errors.length > 0 ? (
+                  <span className="mt-1 block text-xs text-red-700">
+                    {result.errors.slice(0, 5).join("; ")}
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={runSync}
+                disabled={pending !== null}
+                className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {pending === "sync" ? "Syncing…" : "Sync now"}
+              </button>
+              <button
+                type="button"
+                onClick={disconnect}
+                disabled={pending !== null}
+                className={btnSecondary}
+              >
+                {pending === "disconnect" ? "Disconnecting…" : "Disconnect"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <a
+            href="/auth/google/start"
+            className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            Connect Google Drive
+          </a>
+        )}
+      </div>
+    </div>
   );
 }
 
