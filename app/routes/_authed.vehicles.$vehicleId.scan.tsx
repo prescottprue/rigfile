@@ -8,6 +8,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 
 import { requireAuth } from "~/auth/session.server";
+import { ImageCropper } from "~/components/ImageCropper";
 import {
   btnPrimary,
   btnSecondary,
@@ -149,6 +150,8 @@ function ScanReceipt() {
   const galleryRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>("capture");
+  // Raw photo awaiting a crop, before it enters the downscale + read pipeline.
+  const [cropping, setCropping] = useState<File | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [extractError, setExtractError] = useState<string | null>(null);
@@ -259,7 +262,11 @@ function ScanReceipt() {
         capture="environment"
         className="hidden"
         aria-label="Take a photo of the receipt"
-        onChange={(e) => onPhotoPicked(e.target.files?.[0])}
+        onChange={(e) => {
+          const picked = e.target.files?.[0];
+          e.currentTarget.value = "";
+          if (picked) setCropping(picked);
+        }}
       />
       <input
         ref={galleryRef}
@@ -267,8 +274,23 @@ function ScanReceipt() {
         accept="image/*"
         className="hidden"
         aria-label="Choose a receipt photo"
-        onChange={(e) => onPhotoPicked(e.target.files?.[0])}
+        onChange={(e) => {
+          const picked = e.target.files?.[0];
+          e.currentTarget.value = "";
+          if (picked) setCropping(picked);
+        }}
       />
+
+      {cropping ? (
+        <ImageCropper
+          file={cropping}
+          onCancel={() => setCropping(null)}
+          onConfirm={(cropped) => {
+            setCropping(null);
+            onPhotoPicked(cropped);
+          }}
+        />
+      ) : null}
 
       {step === "capture" ? (
         <div className="mt-6 space-y-3">
