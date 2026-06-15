@@ -305,7 +305,7 @@ function ProjectDetail() {
                     : "bg-sunken text-ink-muted"
               }`}
             >
-              🏁{" "}
+              🎯{" "}
               {daysUntil(project.targetDate) >= 0
                 ? `${daysUntil(project.targetDate)} days to ${formatDateOnly(project.targetDate)}`
                 : `target was ${formatDateOnly(project.targetDate)}`}

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { Logo } from "~/components/Logo";
 import { btnPrimary, btnSecondary, card } from "~/components/ui";
 
 export const Route = createFileRoute("/")({
@@ -13,12 +14,15 @@ function Home() {
     <main className="min-h-screen bg-surface px-4 py-12 sm:px-8">
       <div className="mx-auto max-w-3xl">
         <header className="text-center">
-          <p className="text-4xl">🔧</p>
-          <h1 className="mt-2 text-4xl font-semibold text-ink">RigFile</h1>
+          <Logo className="mx-auto h-14 w-14 text-accent" />
+          <h1 className="mt-3 text-4xl font-semibold text-ink">RigFile</h1>
+          <p className="mt-1 text-lg font-medium text-ink-muted">
+            Every vehicle's file.
+          </p>
           <p className="mx-auto mt-3 max-w-xl text-lg text-ink-muted">
-            A shared maintenance log for your garage. Track service history,
-            reminders, and build projects for every vehicle — together with your
-            crew.
+            Service history, receipts, and documents for every rig you own — in
+            one place you control, accessible anywhere (even from Claude).
+            Self-hosted, open source, and yours to export.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link

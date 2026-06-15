@@ -91,9 +91,13 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
 - **Semantic color tokens, not raw palette classes** in app UI: use
   `bg-surface`/`bg-card`/`bg-sunken`, `text-ink`/`text-ink-muted`,
   `border-line`, `bg-accent`, `text-danger`/`warn`/`ok` (defined via
-  `@theme inline` in `app/styles.css`). Garage Mode toggles a `.garage`
-  class on `<html>` (high-contrast dark + 18px base font) — raw slate/red
-  classes won't reskin. Shared class recipes live in `app/components/ui.ts`.
+  `@theme inline` in `app/styles.css`). Dark mode toggles a `.dark` class on
+  `<html>` (palette swap only — no font-size change, so the layout never
+  shifts; `ThemeToggle` in `_authed.tsx` persists `rigfile-theme`, and a
+  pre-paint script in `__root.tsx` applies it / falls back to the OS
+  `prefers-color-scheme`) — raw slate/red classes won't reskin. The brand
+  mark is `app/components/Logo.tsx` (folder + car silhouette, `currentColor`).
+  Shared class recipes live in `app/components/ui.ts`.
 - **Dev server env comes from `.dev.vars`**, not the host process env —
   the Cloudflare vite plugin runs SSR in workerd, which can't see shell
   exports. Node-side tooling (drizzle-kit, seed, vitest) still reads

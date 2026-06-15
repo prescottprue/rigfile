@@ -7,8 +7,9 @@ import {
 
 import stylesHref from "../styles.css?url";
 
-// Applied before paint so Garage Mode doesn't flash light on reload.
-const garageModeScript = `try{if(localStorage.getItem("garage-mode")==="1")document.documentElement.classList.add("garage")}catch(e){}`;
+// Applied before paint so dark mode doesn't flash light on reload. Falls back
+// to the OS color-scheme preference when the user hasn't picked a theme.
+const themeScript = `try{var t=localStorage.getItem("rigfile-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme:dark)").matches))document.documentElement.classList.add("dark")}catch(e){}`;
 
 export const Route = createRootRoute({
   head: () => ({
@@ -32,7 +33,7 @@ function RootDocument() {
       <head>
         <HeadContent />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static inline theme script */}
-        <script dangerouslySetInnerHTML={{ __html: garageModeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="bg-surface text-ink antialiased">
         <Outlet />

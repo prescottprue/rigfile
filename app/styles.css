@@ -3,10 +3,10 @@
 /*
  * Semantic color tokens. Utilities like `bg-surface` / `text-ink` resolve
  * these CSS variables at runtime (via @theme inline), so toggling the
- * `.garage` class on <html> reskins the whole app without a rebuild.
+ * `.dark` class on <html> reskins the whole app without a rebuild.
  *
- * Garage Mode = high-contrast dark palette + larger base font, tuned for
- * reading at arm's length under bad shop lighting with greasy thumbs.
+ * Dark mode swaps the palette only — it never changes the base font size, so
+ * flipping the theme reskins in place without shifting the layout.
  */
 :root {
   --app-surface: #f4f5f7;
@@ -23,7 +23,7 @@
   --app-danger: #dc2626;
 }
 
-.garage {
+.dark {
   --app-surface: #0c0e11;
   --app-card: #171a20;
   --app-sunken: #101216;
@@ -55,9 +55,4 @@
 
 html {
   background-color: var(--app-surface);
-}
-
-/* Bigger type everywhere in the shop — Tailwind sizes are rem-based. */
-html.garage {
-  font-size: 18px;
 }
