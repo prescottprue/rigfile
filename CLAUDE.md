@@ -174,7 +174,10 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    by the scan page ~1600px and avatar uploads ~1024px; deliberately NOT
    named `.client.ts` because TanStack Start's import-protection denies
    `*.client.*` imports from SSR-reachable route components — functions are
-   only called inside browser event handlers), `vpic.ts` (NHTSA vPIC
+   only called inside browser event handlers; `cropImage` — same module,
+   crops to a fractional sub-rect for the `ImageCropper` modal
+   (`app/components/ImageCropper.tsx`, pointer-drag crop used before
+   scan/document upload)), `vpic.ts` (NHTSA vPIC
    client — VIN decode prefills year/make/model/trim/engine; make/model
    datalist suggestions; browser-direct CORS calls, no API key, 5s timeout,
    degrades gracefully to plain free-text)

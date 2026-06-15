@@ -3,7 +3,9 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { requireAuth } from "~/auth/session.server";
+import { ImageCropper } from "~/components/ImageCropper";
 import { btnSecondary, card } from "~/components/ui";
+import { downscaleImage } from "~/lib/image";
 import {
   type DriveConnectionStatus,
   type DriveSyncSummary,
@@ -384,6 +386,20 @@ function ProfileForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [pending, setPending] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  // Raw photo awaiting a square crop before it becomes the avatar.
+  const [cropping, setCropping] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(avatarFile);
+    setAvatarPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [avatarFile]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -391,12 +407,16 @@ function ProfileForm({
     setSuccess(false);
     setPending(true);
     const formData = new FormData(e.currentTarget);
+    // The file input is cleared once a photo is cropped, so inject the
+    // cropped avatar here (already squared + downscaled under the 500KB cap).
+    if (avatarFile) formData.set("avatar", avatarFile);
     try {
       const result = await updateProfileFn({ data: formData });
       if (result && "error" in result && result.error) {
         setError(String(result.error));
       } else {
         setSuccess(true);
+        setAvatarFile(null);
         await router.invalidate();
       }
     } catch (err) {
@@ -452,22 +472,40 @@ function ProfileForm({
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Profile image (PNG or JPEG, ≤500KB)
+            Profile image (cropped to a square)
             <input
-              name="avatar"
               type="file"
-              accept="image/png,image/jpeg"
+              accept="image/*"
+              onChange={(e) => {
+                const picked = e.target.files?.[0];
+                e.currentTarget.value = "";
+                if (picked) setCropping(picked);
+              }}
               className="mt-1 block w-full text-sm"
             />
           </label>
-          {user.avatarPath ? (
+          {avatarPreview || user.avatarPath ? (
             <img
-              src={`/files/${user.avatarPath}`}
-              alt="Current avatar"
+              src={avatarPreview ?? `/files/${user.avatarPath}`}
+              alt={avatarPreview ? "New avatar" : "Current avatar"}
               className="mt-2 h-20 w-20 rounded-full object-cover"
             />
           ) : null}
         </div>
+
+        {cropping ? (
+          <ImageCropper
+            file={cropping}
+            aspect={1}
+            onCancel={() => setCropping(null)}
+            onConfirm={async (cropped) => {
+              setCropping(null);
+              setAvatarFile(
+                await downscaleImage(cropped, { maxDim: 512, quality: 0.85 }),
+              );
+            }}
+          />
+        ) : null}
 
         <button
           type="submit"
