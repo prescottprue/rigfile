@@ -6,7 +6,7 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-const REPO_URL = "https://github.com/prescottprue/logbook";
+const REPO_URL = "https://github.com/prescottprue/rigfile";
 
 function Home() {
   return (
@@ -14,7 +14,7 @@ function Home() {
       <div className="mx-auto max-w-3xl">
         <header className="text-center">
           <p className="text-4xl">🔧</p>
-          <h1 className="mt-2 text-4xl font-semibold text-ink">Logbook</h1>
+          <h1 className="mt-2 text-4xl font-semibold text-ink">RigFile</h1>
           <p className="mx-auto mt-3 max-w-xl text-lg text-ink-muted">
             A shared maintenance log for your garage. Track service history,
             reminders, and build projects for every vehicle — together with your
@@ -47,7 +47,7 @@ function Home() {
               📷 Scan paper receipts — privately
             </h2>
             <p className="mt-2 text-sm text-ink-muted">
-              Snap a shop invoice and Logbook reads the date, mileage, cost, and
+              Snap a shop invoice and RigFile reads the date, mileage, cost, and
               work performed into a log entry, with the original photo attached.
               Extraction runs on self-hosted AI models — your records are never
               sent to third-party AI services.
@@ -59,9 +59,9 @@ function Home() {
               🤖 Talk to your garage from Claude
             </h2>
             <p className="mt-2 text-sm text-ink-muted">
-              Logbook is an MCP server: connect it to your own Claude account
+              RigFile is an MCP server: connect it to your own Claude account
               and ask "what's due on the Jeep?" or "log the oil change I just
-              did" — from your phone, mid-wrench. You sign in with your Logbook
+              did" — from your phone, mid-wrench. You sign in with your RigFile
               account; Claude only sees what you can see.
             </p>
           </div>
@@ -82,7 +82,7 @@ function Home() {
               🔓 Your data is yours
             </h2>
             <p className="mt-2 text-sm text-ink-muted">
-              Export your complete history as JSON at any time. Logbook is open
+              Export your complete history as JSON at any time. RigFile is open
               source, so you can always run your own instance — on Cloudflare or
               a single self-hosted container — and take your data with you.
             </p>

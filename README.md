@@ -1,4 +1,4 @@
-# Logbook
+# RigFile
 
 A personal maintenance log for every car you own. Track services, parts,
 odometer, cost, and notes per vehicle. Export your whole history as JSON
@@ -153,9 +153,9 @@ single container. One command, one mounted volume:
 ```sh
 docker run -d \
   -p 3000:3000 \
-  -v logbook-data:/app/data \
+  -v rigfile-data:/app/data \
   -e SESSION_SECRET="$(openssl rand -base64 48)" \
-  ghcr.io/scottprue/logbook:latest
+  ghcr.io/scottprue/rigfile:latest
 ```
 
 Everything persistent (Postgres cluster + uploaded files) lives under
@@ -190,10 +190,10 @@ more than enough for this app).
 
 ```sh
 # Create R2 bucket
-npx wrangler r2 bucket create vehicle-work-log-uploads
+npx wrangler r2 bucket create rigfile-uploads
 
 # Create Hyperdrive over Neon
-npx wrangler hyperdrive create vehicle-work-log-db --connection-string="$NEON_URL"
+npx wrangler hyperdrive create rigfile-db --connection-string="$NEON_URL"
 # paste the returned id into wrangler.jsonc under hyperdrive[0].id
 
 # Create the KV namespace that stores MCP OAuth grants/tokens
@@ -362,13 +362,13 @@ breaking old bundles.
 ## Sync to Google Drive
 
 Optionally back your records up to your own Google Drive. From **Profile →
-Sync to Google Drive**, connect a Google account and hit **Sync now**: Logbook
-creates a single `Logbook` folder and copies your vehicle documents, receipt
+Sync to Google Drive**, connect a Google account and hit **Sync now**: RigFile
+creates a single `RigFile` folder and copies your vehicle documents, receipt
 scans, and a full JSON export (the same bundle as above) into it, organized
 per vehicle.
 
 It uses Google's [`drive.file`](https://developers.google.com/drive/api/guides/api-specific-auth)
-scope — the **least-privilege** Drive scope. Logbook can only see and modify
+scope — the **least-privilege** Drive scope. RigFile can only see and modify
 files **it created**; it can't list, read, or touch anything else in your
 Drive. The sync is one-way (app → Drive) and idempotent: re-running only
 uploads what's new and refreshes the JSON export. Disconnecting revokes the
@@ -396,7 +396,7 @@ tooling). See `.env.example`.
 
 ## Scan Bay — digitizing paper records
 
-A big part of Logbook is getting a backlog of paper shop invoices into the
+A big part of RigFile is getting a backlog of paper shop invoices into the
 app. Scan Bay does that locally, for **$0** — it runs a vision model on your own
 machine (Ollama + `qwen3-vl:8b` by default), so the receipts never leave your
 laptop and there's no per-page API cost.
@@ -458,10 +458,10 @@ Dev note: Workers AI has no local simulator, so the binding is dev-disabled
 unless you opt in with `CF_REMOTE_BINDINGS=1 npm run dev` (requires
 `wrangler login`); without it, dev scans use local Ollama.
 
-## Logbook MCP — talk to your garage from Claude
+## RigFile MCP — talk to your garage from Claude
 
 The Worker doubles as a remote MCP server at `/mcp`, so anyone on the crew
-can connect Logbook to their own Claude account (claude.ai → Settings →
+can connect RigFile to their own Claude account (claude.ai → Settings →
 Connectors → Add custom connector → `https://<your-worker-domain>/mcp`)
 and ask things like "what's due on the Jeep?" or "log the oil change I
 just did at 87,420 miles" — from a phone, mid-wrench.

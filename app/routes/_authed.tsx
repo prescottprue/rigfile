@@ -76,7 +76,7 @@ function AuthedLayout() {
             >
               🏁
             </span>
-            <span>Logbook</span>
+            <span>RigFile</span>
           </Link>
           <div className="flex items-center gap-2">
             <GarageModeToggle />

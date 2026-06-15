@@ -7,13 +7,13 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: vehicle_work_log
+      POSTGRES_DB: rigfile
     ports:
       - "5440:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d vehicle_work_log"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rigfile"]
       interval: 5s
       timeout: 5s
       retries: 5
