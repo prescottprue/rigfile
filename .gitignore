@@ -37,3 +37,6 @@ playwright/.cache
 docs/superpowers
 # TanStack Router codegen scratch
 .tanstack/
+
+# Claude Code local git worktrees (transient)
+.claude/worktrees/

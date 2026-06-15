@@ -277,6 +277,27 @@ Remix/Prisma stack in places and are queued for a refresh pass.
   `.output/server/index.mjs` but runtime 404s on all routes — SSR
   fallback wiring. Tracked for the self-host image release.
 
+## Deploy & ops gotchas (learned the hard way)
+
+- **A new wrangler binding needs matching deploy-token perms.** `deploy.yml`
+  authenticates with the `CLOUDFLARE_API_TOKEN` GitHub secret. Adding any
+  binding to `wrangler.jsonc` (KV, R2, Durable Object, Hyperdrive…) requires
+  that token to carry the matching *Edit* permission. Symptom when it's
+  missing: `wrangler deploy` uploads every asset, **then** fails at the
+  script-update step with `A request to the Cloudflare API ... failed ...
+  kv bindings require kv write perms [code: 10023]` — so prod silently stops
+  updating while the build looks fine. This froze production from the MCP PR
+  (#59 added `OAUTH_KV`) until the token gained `Workers KV Storage:Edit`.
+  Fix lives in the Cloudflare dashboard token, not the repo.
+- **Cloudflare secrets are per-Worker-script; a rename drops them.** When
+  `name` in `wrangler.jsonc` changed (`vehicle-work-log` → `rigfile`), the
+  new script started with **no** secrets and the app threw at runtime
+  (`SESSION_SECRET must be set and at least 32 characters long`). After any
+  Worker rename, re-run `wrangler secret put` for every secret on the new
+  name: `SESSION_SECRET`, `GOOGLE_OAUTH_CLIENT_ID`/`_SECRET`,
+  `GOOGLE_TOKEN_KEY`. (Same trap if a "missing env" error appears in prod but
+  not dev — dev reads `.dev.vars`, prod reads the Worker's secrets.)
+
 ## Next up (June 2026, in priority order)
 
 ### 1. Scan Bay — paper shop-record ingestion (local AI, $0)
