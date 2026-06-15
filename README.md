@@ -359,6 +359,41 @@ out of the client bundle.
 `schemaVersion` gives future importers a hook to evolve the format without
 breaking old bundles.
 
+## Sync to Google Drive
+
+Optionally back your records up to your own Google Drive. From **Profile →
+Sync to Google Drive**, connect a Google account and hit **Sync now**: RigFile
+creates a single `RigFile` folder and copies your vehicle documents, receipt
+scans, and a full JSON export (the same bundle as above) into it, organized
+per vehicle.
+
+It uses Google's [`drive.file`](https://developers.google.com/drive/api/guides/api-specific-auth)
+scope — the **least-privilege** Drive scope. RigFile can only see and modify
+files **it created**; it can't list, read, or touch anything else in your
+Drive. The sync is one-way (app → Drive) and idempotent: re-running only
+uploads what's new and refreshes the JSON export. Disconnecting revokes the
+grant at Google and drops the stored tokens.
+
+Refresh tokens are encrypted at rest (AES-GCM) and the OAuth `state` is HMAC
+-signed and bound to your session, so the connect flow can't be hijacked.
+
+**Setup (operator).** The feature stays hidden until configured. In Google
+Cloud Console: create an OAuth 2.0 **Web application** client, enable the
+**Drive API**, set the consent screen's scope to `.../auth/drive.file`, and add
+the redirect URI `https://<your-domain>/auth/google/callback` (plus
+`http://localhost:3000/auth/google/callback` for dev). Then provide three
+values — as Wrangler secrets on Cloudflare, or env vars for Node self-host:
+
+```sh
+# Cloudflare Workers
+wrangler secret put GOOGLE_OAUTH_CLIENT_ID
+wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET
+wrangler secret put GOOGLE_TOKEN_KEY        # openssl rand -base64 32
+```
+
+For local dev put the same three keys in `.dev.vars` (and `.env` for Node
+tooling). See `.env.example`.
+
 ## Scan Bay — digitizing paper records
 
 A big part of RigFile is getting a backlog of paper shop invoices into the

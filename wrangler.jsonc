@@ -68,4 +68,12 @@
   ]
   // SESSION_SECRET is a Wrangler secret. Set with:
   //   wrangler secret put SESSION_SECRET
+  //
+  // Google Drive sync (optional) is configured via Wrangler secrets too —
+  // when unset, the feature stays hidden/disabled. Create an OAuth 2.0 "Web
+  // application" client in Google Cloud Console with the Drive API enabled and
+  // redirect URI https://<your-domain>/auth/google/callback, then:
+  //   wrangler secret put GOOGLE_OAUTH_CLIENT_ID
+  //   wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET
+  //   wrangler secret put GOOGLE_TOKEN_KEY     # openssl rand -base64 32
 }
