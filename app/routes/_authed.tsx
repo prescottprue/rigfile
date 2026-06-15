@@ -5,8 +5,8 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-
 import { getCurrentUserFn } from "~/auth/server-fns";
+import { Logo } from "~/components/Logo";
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ location }) => {
@@ -22,19 +22,19 @@ export const Route = createFileRoute("/_authed")({
   component: AuthedLayout,
 });
 
-function GarageModeToggle() {
-  const [on, setOn] = useState(false);
+function ThemeToggle() {
+  const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    setOn(document.documentElement.classList.contains("garage"));
+    setDark(document.documentElement.classList.contains("dark"));
   }, []);
 
   function toggle() {
-    const next = !on;
-    setOn(next);
-    document.documentElement.classList.toggle("garage", next);
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
     try {
-      localStorage.setItem("garage-mode", next ? "1" : "0");
+      localStorage.setItem("rigfile-theme", next ? "dark" : "light");
     } catch {
       // private browsing — theme just won't persist
     }
@@ -44,16 +44,36 @@ function GarageModeToggle() {
     <button
       type="button"
       onClick={toggle}
-      aria-pressed={on}
-      title="Garage Mode: high contrast + big type for the shop"
-      className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-bold tracking-wide transition-colors ${
-        on
-          ? "border-accent bg-accent text-accent-ink"
-          : "border-line bg-card text-ink-muted hover:text-ink"
-      }`}
+      aria-pressed={dark}
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      title={dark ? "Switch to light mode" : "Switch to dark mode"}
+      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-line bg-card text-ink-muted transition-colors hover:text-ink"
     >
-      <span aria-hidden>🔧</span>
-      <span className="hidden sm:inline">GARAGE</span>
+      {dark ? (
+        // currently dark — sun indicates a switch to light
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+        </svg>
+      ) : (
+        // currently light — moon indicates a switch to dark
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" />
+        </svg>
+      )}
     </button>
   );
 }
@@ -72,14 +92,14 @@ function AuthedLayout() {
           >
             <span
               aria-hidden
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-lg text-accent-ink"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-accent-ink"
             >
-              🏁
+              <Logo className="h-6 w-6" />
             </span>
             <span>RigFile</span>
           </Link>
           <div className="flex items-center gap-2">
-            <GarageModeToggle />
+            <ThemeToggle />
             <div className="relative">
               <button
                 type="button"

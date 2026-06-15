@@ -4,11 +4,14 @@ import {
   Outlet,
   Scripts,
 } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
+import { ErrorState } from "~/components/ErrorState";
 import stylesHref from "../styles.css?url";
 
-// Applied before paint so Garage Mode doesn't flash light on reload.
-const garageModeScript = `try{if(localStorage.getItem("garage-mode")==="1")document.documentElement.classList.add("garage")}catch(e){}`;
+// Applied before paint so dark mode doesn't flash light on reload. Falls back
+// to the OS color-scheme preference when the user hasn't picked a theme.
+const themeScript = `try{var t=localStorage.getItem("rigfile-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme:dark)").matches))document.documentElement.classList.add("dark")}catch(e){}`;
 
 export const Route = createRootRoute({
   head: () => ({
@@ -23,19 +26,40 @@ export const Route = createRootRoute({
     ],
     links: [{ rel: "stylesheet", href: stylesHref }],
   }),
-  component: RootDocument,
+  errorComponent: ({ reset }) => (
+    <RootDocument>
+      <ErrorState
+        title="Something threw a rod"
+        message="An unexpected error stalled this page. Try again, or head back to your garage."
+        onReset={reset}
+      />
+    </RootDocument>
+  ),
+  notFoundComponent: () => (
+    <RootDocument>
+      <ErrorState
+        title="Took a wrong turn"
+        message="We couldn't find that page — it may have moved or never existed. Let's get you back on the road."
+      />
+    </RootDocument>
+  ),
+  component: () => (
+    <RootDocument>
+      <Outlet />
+    </RootDocument>
+  ),
 });
 
-function RootDocument() {
+function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
         <HeadContent />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static inline theme script */}
-        <script dangerouslySetInnerHTML={{ __html: garageModeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="bg-surface text-ink antialiased">
-        <Outlet />
+        {children}
         <Scripts />
       </body>
     </html>

@@ -119,7 +119,7 @@ function ProfilePage() {
       <hr className="border-slate-200" />
       <PasswordForm />
       <hr className="border-slate-200" />
-      <ConnectClaude />
+      <ConnectAI />
       <hr className="border-slate-200" />
       <GoogleDrive status={drive} />
       <hr className="border-slate-200" />
@@ -282,7 +282,7 @@ function GoogleDrive({ status }: { status: DriveConnectionStatus }) {
   );
 }
 
-function ConnectClaude() {
+function ConnectAI() {
   // window.location is browser-only; render the path until hydration fills
   // in the full origin.
   const [mcpUrl, setMcpUrl] = useState("/mcp");
@@ -300,23 +300,22 @@ function ConnectClaude() {
 
   return (
     <div>
-      <h2 className="text-lg font-medium text-slate-900">
-        🤖 Connect Claude (MCP)
-      </h2>
+      <h2 className="text-lg font-medium text-ink">🤖 Connect your AI (MCP)</h2>
       <div className={`${card} mt-4 max-w-lg p-5`}>
         <p className="text-sm text-ink-muted">
           RigFile is an MCP server, so you can talk to your garage from your own
-          Claude account — "what's due on the Jeep?", "log the oil change I just
-          did at 87,420 miles" — from a phone, mid-wrench. Claude signs in as{" "}
+          AI assistant — "what's due on the Jeep?", "log the oil change I just
+          did at 87,420 miles" — from a phone, mid-wrench. Your AI signs in as{" "}
           <em>you</em>: it can only see and log to vehicles your account can
           access.
         </p>
         <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-ink-muted">
           <li>
-            In Claude (web or mobile), open{" "}
+            Open your AI client's MCP connector settings (in Claude:{" "}
             <span className="font-medium text-ink">
               Settings → Connectors → Add custom connector
             </span>
+            )
           </li>
           <li>Paste the URL below</li>
           <li>Sign in with your RigFile account and approve access</li>
@@ -335,9 +334,9 @@ function ConnectClaude() {
           </button>
         </div>
         <p className="mt-3 text-xs text-ink-muted">
-          Claude can list your vehicles, check what's due, log completed work,
+          Your AI can list your vehicles, check what's due, log completed work,
           complete reminders, and manage project parts. Connections use OAuth —
-          no API keys, and your password is never shared with Claude.
+          no API keys, and your password is never shared with the AI.
         </p>
       </div>
     </div>

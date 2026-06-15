@@ -1,9 +1,13 @@
 # RigFile
 
-A personal maintenance log for every car you own. Track services, parts,
-odometer, cost, and notes per vehicle. Export your whole history as JSON
-whenever you want — and run your own instance on a single `docker run` if you
-don't want to rely on any hosted provider.
+**Every vehicle's file.**
+
+A home for everything about the vehicles you own — service history, receipts,
+documents, parts, odometer, cost, and notes, for every rig (car, truck, camper
+van, motorcycle, whatever you drive). Not a walled app but a record you control:
+export your whole history as JSON whenever you want, sync it to your own Google
+Drive, talk to it from Claude, and run your own instance on a single
+`docker run` if you don't want to rely on any hosted provider.
 
 What it does today:
 
@@ -43,9 +47,10 @@ What it does today:
   JPEG) before upload, so 12 MB phone shots arrive as a few hundred KB.
   (HEIC works in Safari, which can decode it; other browsers fall back to
   the original file and the server's 2MB cap applies.)
-- **Garage Mode** — one tap flips the whole app to a high-contrast dark
-  theme with bigger type and fat touch targets, for reading at arm's
-  length under bad shop lighting. Mobile-first throughout.
+- **Dark mode** — one tap flips the whole app between a light and a
+  high-contrast dark palette (and it follows your OS preference until you
+  choose). Color only — the layout never shifts. Mobile-first throughout,
+  with fat touch targets for greasy-thumb use at arm's length.
 
 This repo originally ran on Remix + Fly + Postgres + MinIO. It was rebuilt
 from the ground up in 2026 on a TanStack Start stack targeting Cloudflare
