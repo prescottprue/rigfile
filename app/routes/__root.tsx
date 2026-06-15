@@ -18,7 +18,7 @@ export const Route = createRootRoute({
         name: "viewport",
         content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
-      { title: "Logbook" },
+      { title: "RigFile" },
       { name: "theme-color", content: "#0c0e11" },
     ],
     links: [{ rel: "stylesheet", href: stylesHref }],

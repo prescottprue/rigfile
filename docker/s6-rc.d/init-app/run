@@ -7,12 +7,12 @@ until pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; do
 done
 
 # Create the application database if it doesn't exist
-psql -h 127.0.0.1 -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='vehicle_work_log'" \
+psql -h 127.0.0.1 -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='rigfile'" \
   | grep -q 1 \
-  || psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE vehicle_work_log"
+  || psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE rigfile"
 
 # Run migrations (embedded SQL files in /app/migrations)
 cd /app
 for f in migrations/*.sql; do
-  [ -f "$f" ] && psql -h 127.0.0.1 -U postgres -d vehicle_work_log -v ON_ERROR_STOP=1 -f "$f"
+  [ -f "$f" ] && psql -h 127.0.0.1 -U postgres -d rigfile -v ON_ERROR_STOP=1 -f "$f"
 done

@@ -1,16 +1,16 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "vehicle-work-log",
+  "name": "rigfile",
   "compatibility_date": "2026-01-15",
   "compatibility_flags": ["nodejs_compat"],
   // Custom entry: wraps the TanStack Start handler in workers-oauth-provider
-  // and exports the LogbookMCP Durable Object (see server.ts).
+  // and exports the RigFileMCP Durable Object (see server.ts).
   "main": "./server.ts",
   "observability": {
     "enabled": true
   },
   // Hyperdrive pools TCP Postgres connections from Workers. Create with:
-  //   wrangler hyperdrive create vehicle-work-log-db --connection-string="$NEON_URL"
+  //   wrangler hyperdrive create rigfile-db --connection-string="$NEON_URL"
   // Then paste the returned id below.
   "hyperdrive": [
     {
@@ -19,15 +19,15 @@
       "id": "d0a95e6693424f2e9f3e9bb7f1af4b19",
       // In dev, wrangler/miniflare routes Hyperdrive requests to this URL so
       // the local Postgres from `npm run docker:dev` stands in for Neon.
-      "localConnectionString": "postgresql://postgres:postgres@localhost:5440/vehicle_work_log"
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5440/rigfile"
     }
   ],
   // R2 bucket holds avatar uploads. Create with:
-  //   wrangler r2 bucket create vehicle-work-log-uploads
+  //   wrangler r2 bucket create rigfile-uploads
   "r2_buckets": [
     {
       // REPLACE WITH YOUR R2_BUCKET NAME FROM CLOUDFLARE
-      "bucket_name": "vehicle-work-log-prod-uploads",
+      "bucket_name": "rigfile-prod-uploads",
       "binding": "UPLOADS"
     }
   ],
@@ -56,14 +56,14 @@
     "bindings": [
       {
         "name": "MCP_OBJECT",
-        "class_name": "LogbookMCP"
+        "class_name": "RigFileMCP"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["LogbookMCP"]
+      "new_sqlite_classes": ["RigFileMCP"]
     }
   ]
   // SESSION_SECRET is a Wrangler secret. Set with:

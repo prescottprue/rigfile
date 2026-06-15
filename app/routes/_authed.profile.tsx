@@ -116,7 +116,7 @@ function ConnectClaude() {
       </h2>
       <div className={`${card} mt-4 max-w-lg p-5`}>
         <p className="text-sm text-ink-muted">
-          Logbook is an MCP server, so you can talk to your garage from your own
+          RigFile is an MCP server, so you can talk to your garage from your own
           Claude account — "what's due on the Jeep?", "log the oil change I just
           did at 87,420 miles" — from a phone, mid-wrench. Claude signs in as{" "}
           <em>you</em>: it can only see and log to vehicles your account can
@@ -130,7 +130,7 @@ function ConnectClaude() {
             </span>
           </li>
           <li>Paste the URL below</li>
-          <li>Sign in with your Logbook account and approve access</li>
+          <li>Sign in with your RigFile account and approve access</li>
         </ol>
         <div className="mt-4 flex gap-2">
           <input
@@ -163,9 +163,9 @@ function YourData() {
         <p className="text-sm text-ink-muted">
           Your records belong to you. Download your complete history — vehicles,
           logs, readings, vendors, tags, and parts — as JSON at any time.
-          Logbook is also{" "}
+          RigFile is also{" "}
           <a
-            href="https://github.com/prescottprue/logbook"
+            href="https://github.com/prescottprue/rigfile"
             target="_blank"
             rel="noreferrer"
             className="font-medium text-accent hover:underline"

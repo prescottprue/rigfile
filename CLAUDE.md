@@ -1,4 +1,4 @@
-# CLAUDE.md — Logbook
+# CLAUDE.md — RigFile
 
 Quick reference for Claude Code sessions in this repo. Read `README.md` for
 user-facing context and tool-choice rationale.
@@ -195,7 +195,7 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
     is the shared create/edit form (vPIC assists + avatar downscale)
 11. `server.ts` + `app/mcp/` — Worker entry (`main` in wrangler.jsonc):
     wraps the TanStack handler in `workers-oauth-provider`, mounts
-    `LogbookMCP.serve("/mcp")`, and re-exports the `LogbookMCP` Durable
+    `RigFileMCP.serve("/mcp")`, and re-exports the `RigFileMCP` Durable
     Object. `agent.server.ts` defines the MCP tools (`list_vehicles`,
     `get_vehicle_status`, `whats_due`, `log_work`, `complete_reminder`,
     `list_projects`, `add_project_item`, `update_item_status`) as thin
@@ -281,9 +281,9 @@ including a backlog of paper shop invoices.
   photo still attaches on save.
 - Deliberately NOT the Anthropic API — cost. Don't suggest it for this.
 
-### 2. Logbook MCP server (DONE — see "Files to know" #11)
+### 2. RigFile MCP server (DONE — see "Files to know" #11)
 
-So the crew can talk to Logbook from their own Claude accounts
+So the crew can talk to RigFile from their own Claude accounts
 (claude.ai custom connector, works on mobile). NOTE: rally-specific
 features stay OUT of the app — the app is generic vehicle maintenance;
 rally procedure lives in Scott's external rebelle-rally skill, which

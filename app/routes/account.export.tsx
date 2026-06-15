@@ -121,7 +121,7 @@ export const Route = createFileRoute("/account/export")({
 
         return Response.json(body, {
           headers: {
-            "content-disposition": `attachment; filename="logbook-${user.email}.json"`,
+            "content-disposition": `attachment; filename="rigfile-${user.email}.json"`,
           },
         });
       },
