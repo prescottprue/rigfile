@@ -133,7 +133,12 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    close/completion dates — a single-date receipt fills only the close;
    `odometer_readings`: standalone mileage entries (odometer, read_at, note,
    user_id) — "last odometer" is latest-by-date across logs + manual readings,
-   ties broken by higher miles)
+   ties broken by higher miles;
+   `google_connections`: per-user Google Drive OAuth-client tokens (Logbook is
+   the OAuth *client* here, the opposite role from the MCP server) — `drive.file`
+   scope only, refresh token AES-GCM encrypted at rest, access token cached;
+   `drive_synced_files`: idempotent map of synced source → Drive file/folder id
+   so re-syncing skips already-uploaded blobs and reuses folders)
 2. `app/db/client.ts` — postgres-js client, runtime-aware
 3. `app/db/migrations/` — generated SQL (do not edit by hand unless
    adding CREATE EXTENSION-style ops that Drizzle can't infer)
@@ -158,7 +163,12 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
    `odometer.server.ts` (union latest across logs + manual readings, batch
    helper, history, create/delete — deletes restricted to author-or-owner),
    `vehicle-form.server.ts` (shared parse + avatar store + avatar reap for
-   create and edit routes)
+   create and edit routes),
+   `export.server.ts` (`buildUserExport` — the full "your data" JSON bundle,
+   shared by the `/account/export` download and the Drive sync),
+   `google-drive.server.ts` (one-way app → Drive sync: connection CRUD with
+   token refresh/caching, `syncToDrive` over owned vehicles' documents + log
+   attachments + the JSON export, idempotent via `drive_synced_files`)
 8. `app/lib/` — isomorphic client utilities (safe to call from route
    components): `image.ts` (`downscaleImage` — shared JPEG downscale used
    by the scan page ~1600px and avatar uploads ~1024px; deliberately NOT
@@ -186,10 +196,24 @@ npm run test:e2e        # playwright smoke tests (needs dev server + DB)
     `_authed.vehicles.$vehicleId.documents.tsx` (Documents tab: owner-only
     purchase-details panel + tagged document upload + FTS search box over
     OCR'd text/label/filename + document list with retag and uploader-or-
-    owner delete), and `authorize.tsx`
+    owner delete), `authorize.tsx`
     (OAuth consent for the MCP server — server handlers only, renders
-    plain HTML, reuses session auth); `app/components/VehicleForm.tsx`
+    plain HTML, reuses session auth), and the Google Drive connect flow
+    `auth.google.start.tsx` / `auth.google.callback.tsx` (server handlers:
+    redirect to Google consent with a signed `state`, exchange the code,
+    store the connection; both land back on `/profile?drive=…`). The Drive
+    sync panel (connect / sync-now / disconnect) lives on
+    `_authed.profile.tsx`. `app/components/VehicleForm.tsx`
     is the shared create/edit form (vPIC assists + avatar downscale)
+11b. `app/google/` — Google Drive integration helpers (server-only): `oauth.server.ts`
+    (`drive.file` + `openid email` scopes, code/refresh exchange, revoke,
+    `isGoogleDriveConfigured`), `drive.server.ts` (minimal Drive v3 REST —
+    create folder, multipart upload, update content, existence check),
+    `crypto.server.ts` (AES-GCM at-rest encryption of refresh tokens, keyed by
+    `GOOGLE_TOKEN_KEY`), `state.server.ts` (stateless HMAC-signed OAuth `state`
+    keyed by `SESSION_SECRET`, bound to the user). Creds come from
+    `process.env` (`GOOGLE_OAUTH_CLIENT_ID`/`_SECRET`, `GOOGLE_TOKEN_KEY`) —
+    same `process.env` path as `SESSION_SECRET`, so no new wrangler binding.
 11. `server.ts` + `app/mcp/` — Worker entry (`main` in wrangler.jsonc):
     wraps the TanStack handler in `workers-oauth-provider`, mounts
     `LogbookMCP.serve("/mcp")`, and re-exports the `LogbookMCP` Durable

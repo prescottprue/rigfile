@@ -391,6 +391,67 @@ export const odometerReadings = pgTable(
   (t) => [index("odometer_readings_vehicle_idx").on(t.vehicleId)],
 );
 
+// Per-user Google Drive connection. Here Logbook is the OAuth *client* (the
+// user authorizes Logbook to write into their Drive) — the opposite role from
+// the MCP server, where Logbook is the OAuth provider. The `drive.file` scope
+// means Logbook can only see and touch files it created itself, never the
+// rest of the user's Drive. `refreshTokenEnc` is AES-GCM encrypted at rest
+// (see app/google/crypto.server.ts); the access token is cached until expiry.
+export const googleConnections = pgTable("google_connections", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  // The Google account the tokens belong to, for display. Filled from the
+  // OpenID `email` scope at connect time.
+  googleEmail: text("google_email"),
+  refreshTokenEnc: text("refresh_token_enc").notNull(),
+  accessToken: text("access_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  // The id of the "Logbook" root folder created in the user's Drive.
+  rootFolderId: text("root_folder_id"),
+  scope: text(),
+  lastSyncedAt: timestamp("last_synced_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  ...timestamps,
+});
+
+// Maps a synced source object to the file/folder Logbook created in the user's
+// Drive, so re-syncing is idempotent and resumable: an already-synced
+// immutable blob (a vehicle document or log attachment) is skipped, folders
+// are reused, and the JSON export is updated in place. Rows cascade when the
+// user (or their connection) is deleted.
+export const driveSyncedFiles = pgTable(
+  "drive_synced_files",
+  {
+    id: cuid2().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    // "folder" | "vehicle_document" | "log_attachment" | "export"
+    sourceType: text("source_type").notNull(),
+    // Stable key within sourceType: a document/attachment id, a folder path
+    // like "vehicle:<id>" or "vehicle:<id>:documents", or "export".
+    sourceKey: text("source_key").notNull(),
+    driveFileId: text("drive_file_id").notNull(),
+    syncedAt: timestamp("synced_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("drive_synced_files_source_idx").on(
+      t.userId,
+      t.sourceType,
+      t.sourceKey,
+    ),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Vehicle = typeof vehicles.$inferSelect;
@@ -414,3 +475,7 @@ export type VehicleDocument = typeof vehicleDocuments.$inferSelect;
 export type NewVehicleDocument = typeof vehicleDocuments.$inferInsert;
 export type OdometerReading = typeof odometerReadings.$inferSelect;
 export type NewOdometerReading = typeof odometerReadings.$inferInsert;
+export type GoogleConnection = typeof googleConnections.$inferSelect;
+export type NewGoogleConnection = typeof googleConnections.$inferInsert;
+export type DriveSyncedFile = typeof driveSyncedFiles.$inferSelect;
+export type NewDriveSyncedFile = typeof driveSyncedFiles.$inferInsert;
