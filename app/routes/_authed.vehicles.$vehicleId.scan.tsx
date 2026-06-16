@@ -8,6 +8,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 
 import { requireAuth } from "~/auth/session.server";
+import { DocumentScanner } from "~/components/DocumentScanner";
 import { ImageCropper } from "~/components/ImageCropper";
 import {
   btnPrimary,
@@ -150,7 +151,9 @@ function ScanReceipt() {
   const galleryRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>("capture");
-  // Raw photo awaiting a crop, before it enters the downscale + read pipeline.
+  // A picked photo flows: scanning (flatten) → optional cropping → the
+  // downscale + read pipeline. Either step can hand off to the next.
+  const [scanning, setScanning] = useState<File | null>(null);
   const [cropping, setCropping] = useState<File | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -265,7 +268,7 @@ function ScanReceipt() {
         onChange={(e) => {
           const picked = e.target.files?.[0];
           e.currentTarget.value = "";
-          if (picked) setCropping(picked);
+          if (picked) setScanning(picked);
         }}
       />
       <input
@@ -277,9 +280,24 @@ function ScanReceipt() {
         onChange={(e) => {
           const picked = e.target.files?.[0];
           e.currentTarget.value = "";
-          if (picked) setCropping(picked);
+          if (picked) setScanning(picked);
         }}
       />
+
+      {scanning ? (
+        <DocumentScanner
+          file={scanning}
+          onCancel={() => setScanning(null)}
+          onConfirm={(flattened) => {
+            setScanning(null);
+            onPhotoPicked(flattened);
+          }}
+          onCropInstead={(original) => {
+            setScanning(null);
+            setCropping(original);
+          }}
+        />
+      ) : null}
 
       {cropping ? (
         <ImageCropper
