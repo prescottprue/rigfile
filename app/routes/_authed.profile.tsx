@@ -197,10 +197,10 @@ function GoogleDrive({ status }: { status: DriveConnectionStatus }) {
       </h2>
       <div className={`${card} mt-4 max-w-lg p-5`}>
         <p className="text-sm text-ink-muted">
-          Keep a copy of your records in your own Google Drive. RigFile creates
-          a single <span className="font-medium text-ink">RigFile</span> folder
+          Keep a copy of your records in your own Google Drive. Logbook creates
+          a single <span className="font-medium text-ink">Logbook</span> folder
           and copies your vehicle documents, receipt scans, and a full data
-          export into it. Using Google's <code>drive.file</code> access, RigFile
+          export into it. Using Google's <code>drive.file</code> access, Logbook
           can only see files it created here — never the rest of your Drive.
         </p>
 
@@ -303,7 +303,7 @@ function ConnectAI() {
       <h2 className="text-lg font-medium text-ink">🤖 Connect your AI (MCP)</h2>
       <div className={`${card} mt-4 max-w-lg p-5`}>
         <p className="text-sm text-ink-muted">
-          RigFile is an MCP server, so you can talk to your garage from your own
+          Logbook is an MCP server, so you can talk to your garage from your own
           AI assistant — "what's due on the Jeep?", "log the oil change I just
           did at 87,420 miles" — from a phone, mid-wrench. Your AI signs in as{" "}
           <em>you</em>: it can only see and log to vehicles your account can
@@ -318,7 +318,7 @@ function ConnectAI() {
             )
           </li>
           <li>Paste the URL below</li>
-          <li>Sign in with your RigFile account and approve access</li>
+          <li>Sign in with your Logbook account and approve access</li>
         </ol>
         <div className="mt-4 flex gap-2">
           <input
@@ -351,9 +351,9 @@ function YourData() {
         <p className="text-sm text-ink-muted">
           Your records belong to you. Download your complete history — vehicles,
           logs, readings, vendors, tags, and parts — as JSON at any time.
-          RigFile is also{" "}
+          Logbook is also{" "}
           <a
-            href="https://github.com/prescottprue/rigfile"
+            href="https://github.com/prescottprue/logbook"
             target="_blank"
             rel="noreferrer"
             className="font-medium text-accent hover:underline"
