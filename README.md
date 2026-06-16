@@ -21,9 +21,10 @@ What it does today:
   vehicle holds the paperwork: purchase contract, title, registration,
   insurance, bill of sale. Upload images or PDFs, tag each by type, and
   record structured purchase details (date, price, seller, odometer at
-  purchase). Snap a photo and crop it right on your phone before upload
-  (drag to move, pull a corner to resize). Uploaded photos are OCR'd
-  locally on save, so you can
+  purchase). Snap a photo and either **scan it flat** — the app finds the
+  document's corners and perspective-corrects the angle (all in the
+  browser via OpenCV.js, no upload) — or crop it manually, before upload.
+  Uploaded photos are OCR'd locally on save, so you can
   **search the words inside a scan** — find a policy number or VIN that
   only appears in the image. Documents ship in the JSON export too.
 - **Crew sharing** — invite someone by email to any vehicle; members see
@@ -447,6 +448,12 @@ reads the receipt, and prefills an editable work log — cost, odometer, date,
 line items in the notes, plus a one-tap follow-up reminder when the tech
 noted recommended work. The photo is attached to the log either way, so even
 when extraction misses, you save the record first and fix fields later.
+
+Before the photo is read, a **document scanner** detects the page's four
+corners and flattens the perspective (drag a corner to fine-tune), so an
+angled receipt straightens out — which both reads better and stores cleaner.
+It runs entirely in the browser (OpenCV.js, lazy-loaded on first scan, no
+upload); if it can't run you can crop manually or use the photo as-is.
 
 How it extracts, by runtime:
 

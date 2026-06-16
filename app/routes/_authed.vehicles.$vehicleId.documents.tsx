@@ -7,6 +7,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 
 import { requireAuth } from "~/auth/session.server";
+import { DocumentScanner } from "~/components/DocumentScanner";
 import { formatDateOnly } from "~/components/format";
 import { ImageCropper } from "~/components/ImageCropper";
 import {
@@ -355,6 +356,11 @@ function DocumentsPage() {
   const [docLabel, setDocLabel] = useState("");
   const [selected, setSelected] = useState<File[]>([]);
   const [cropIndex, setCropIndex] = useState<number | null>(null);
+  const [scanIndex, setScanIndex] = useState<number | null>(null);
+
+  function replaceSelected(index: number, next: File) {
+    setSelected((prev) => prev.map((f, j) => (j === index ? next : f)));
+  }
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(q);
@@ -453,13 +459,22 @@ function DocumentsPage() {
                   {f.name}
                 </span>
                 {f.type.startsWith("image/") ? (
-                  <button
-                    type="button"
-                    className="shrink-0 font-semibold text-accent hover:underline"
-                    onClick={() => setCropIndex(i)}
-                  >
-                    Crop
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="shrink-0 font-semibold text-accent hover:underline"
+                      onClick={() => setScanIndex(i)}
+                    >
+                      Scan
+                    </button>
+                    <button
+                      type="button"
+                      className="shrink-0 font-semibold text-accent hover:underline"
+                      onClick={() => setCropIndex(i)}
+                    >
+                      Crop
+                    </button>
+                  </>
                 ) : null}
                 <button
                   type="button"
@@ -479,14 +494,27 @@ function DocumentsPage() {
         </button>
       </form>
 
+      {scanIndex != null && selected[scanIndex] ? (
+        <DocumentScanner
+          file={selected[scanIndex]}
+          onCancel={() => setScanIndex(null)}
+          onConfirm={(flattened) => {
+            replaceSelected(scanIndex, flattened);
+            setScanIndex(null);
+          }}
+          onCropInstead={() => {
+            setCropIndex(scanIndex);
+            setScanIndex(null);
+          }}
+        />
+      ) : null}
+
       {cropIndex != null && selected[cropIndex] ? (
         <ImageCropper
           file={selected[cropIndex]}
           onCancel={() => setCropIndex(null)}
           onConfirm={(cropped) => {
-            setSelected((prev) =>
-              prev.map((f, j) => (j === cropIndex ? cropped : f)),
-            );
+            replaceSelected(cropIndex, cropped);
             setCropIndex(null);
           }}
         />
