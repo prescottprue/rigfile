@@ -23,8 +23,21 @@ export const Route = createRootRoute({
       },
       { title: "RigFile" },
       { name: "theme-color", content: "#0c0e11" },
+      // iOS home-screen install: standalone chrome + dark status bar. iOS
+      // reads these + the apple-touch-icon, not the web manifest.
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "RigFile" },
+      {
+        name: "apple-mobile-web-app-status-bar-style",
+        content: "black-translucent",
+      },
+      { name: "mobile-web-app-capable", content: "yes" },
     ],
-    links: [{ rel: "stylesheet", href: stylesHref }],
+    links: [
+      { rel: "stylesheet", href: stylesHref },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+    ],
   }),
   errorComponent: ({ reset }) => (
     <RootDocument>
