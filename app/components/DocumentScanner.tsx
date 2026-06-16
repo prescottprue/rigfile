@@ -8,7 +8,7 @@ import {
   warpDocument,
 } from "~/lib/document-scan";
 
-type Status = "detecting" | "ready" | "flattening" | "unavailable";
+type Status = "idle" | "detecting" | "flattening" | "error";
 
 /** Clamp a fractional coordinate to the image. */
 function clamp01(n: number): number {
@@ -16,11 +16,12 @@ function clamp01(n: number): number {
 }
 
 /**
- * Full-screen document-scan modal: auto-detects the page's four corners,
- * lets the user nudge each one, then perspective-warps the photo flat (better
- * OCR, cleaner stored scan). OpenCV.js loads lazily on open; if it can't
- * load, the modal degrades to "crop instead" / "use original" so a scan is
- * never blocked. Browser-only — render from an event handler, never SSR.
+ * Full-screen document-scan modal. Opens instantly showing the photo with a
+ * draggable quad — no WASM yet. OpenCV.js (a ~10MB module) loads lazily only
+ * when the user taps "Auto-detect" or "Flatten", so a routine capture never
+ * pays that cost. Detection/warp run on capped-size images and are
+ * time-boxed, so they can't hang or OOM the tab on iOS. Browser-only — render
+ * from an event handler, never SSR.
  */
 export function DocumentScanner({
   file,
@@ -36,8 +37,9 @@ export function DocumentScanner({
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
-  const [quad, setQuad] = useState<Quad | null>(null);
-  const [status, setStatus] = useState<Status>("detecting");
+  const [quad, setQuad] = useState<Quad>(defaultQuad());
+  const [status, setStatus] = useState<Status>("idle");
+  const [note, setNote] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const drag = useRef<{ corner: number; id: number } | null>(null);
 
@@ -47,31 +49,13 @@ export function DocumentScanner({
     return () => URL.revokeObjectURL(u);
   }, [file]);
 
-  // Kick off detection once on open. A failure to load OpenCV (network, old
-  // device) flips to the degraded state rather than throwing.
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const detected = await detectDocumentQuad(file);
-        if (!alive) return;
-        setQuad(detected ?? defaultQuad());
-        setStatus("ready");
-      } catch {
-        if (alive) setStatus("unavailable");
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [file]);
-
   function onImgLoad() {
     const img = imgRef.current;
     if (img) setBox({ w: img.clientWidth, h: img.clientHeight });
   }
 
   function startDrag(e: React.PointerEvent, corner: number) {
+    if (status !== "idle") return;
     e.preventDefault();
     e.stopPropagation();
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -81,7 +65,7 @@ export function DocumentScanner({
   function onPointerMove(e: React.PointerEvent) {
     const d = drag.current;
     const img = imgRef.current;
-    if (!d || !img || !quad) return;
+    if (!d || !img) return;
     const r = img.getBoundingClientRect();
     const x = clamp01((e.clientX - r.left) / r.width);
     const y = clamp01((e.clientY - r.top) / r.height);
@@ -92,20 +76,35 @@ export function DocumentScanner({
     drag.current = null;
   }
 
-  async function flatten() {
-    if (!quad) return;
-    setStatus("flattening");
+  async function autoDetect() {
+    setStatus("detecting");
+    setNote(null);
     try {
-      onConfirm(await warpDocument(file, quad));
+      const detected = await detectDocumentQuad(file);
+      setQuad(detected ?? defaultQuad());
+      if (!detected) {
+        setNote("No clear edges found — drag the corners to fit.");
+      }
+      setStatus("idle");
     } catch {
-      setStatus("unavailable");
+      setNote("Auto-detect isn't available here — drag the corners, or crop.");
+      setStatus("idle");
     }
   }
 
+  async function flatten() {
+    setStatus("flattening");
+    setNote(null);
+    try {
+      onConfirm(await warpDocument(file, quad));
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  const busy = status === "detecting" || status === "flattening";
   const points =
-    box && quad
-      ? quad.map((p) => `${p.x * box.w},${p.y * box.h}`).join(" ")
-      : "";
+    box && quad.map((p) => `${p.x * box.w},${p.y * box.h}`).join(" ");
 
   return (
     <div
@@ -130,7 +129,7 @@ export function DocumentScanner({
               onLoad={onImgLoad}
               className="max-h-[68vh] max-w-full select-none object-contain"
             />
-            {box && quad && status !== "unavailable" ? (
+            {box && status !== "error" ? (
               <>
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full"
@@ -138,35 +137,36 @@ export function DocumentScanner({
                   preserveAspectRatio="none"
                   role="img"
                 >
-                  <title>Detected document outline</title>
+                  <title>Document outline</title>
                   <polygon
-                    points={points}
+                    points={points || ""}
                     fill="rgba(251,146,60,0.18)"
                     stroke="#fb923c"
                     strokeWidth={2}
                     vectorEffect="non-scaling-stroke"
                   />
                 </svg>
-                {quad.map((p, i) => (
-                  <span
-                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed 4-corner quad, index is the identity
-                    key={i}
-                    aria-hidden
-                    onPointerDown={(e) => startDrag(e, i)}
-                    style={{
-                      left: p.x * box.w,
-                      top: p.y * box.h,
-                      touchAction: "none",
-                    }}
-                    className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent/70"
-                  />
-                ))}
+                {!busy &&
+                  quad.map((p, i) => (
+                    <span
+                      // biome-ignore lint/suspicious/noArrayIndexKey: fixed 4-corner quad, index is the identity
+                      key={i}
+                      aria-hidden
+                      onPointerDown={(e) => startDrag(e, i)}
+                      style={{
+                        left: p.x * box.w,
+                        top: p.y * box.h,
+                        touchAction: "none",
+                      }}
+                      className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent/70"
+                    />
+                  ))}
               </>
             ) : null}
           </div>
         ) : null}
 
-        {status === "detecting" || status === "flattening" ? (
+        {busy ? (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="flex items-center gap-3 rounded-xl bg-card px-4 py-3">
               <span
@@ -183,66 +183,86 @@ export function DocumentScanner({
         ) : null}
       </div>
 
-      {status === "unavailable" ? (
-        <div className="mx-auto mt-4 w-full max-w-md space-y-3">
-          <p className="rounded-xl border border-line bg-card p-3 text-center text-sm text-ink">
-            Couldn't run the document scanner on this device. Crop it manually
-            instead, or use the original photo.
+      <div className="mx-auto mt-4 w-full max-w-md space-y-2">
+        {note ? (
+          <p className="rounded-xl border border-line bg-card p-2 text-center text-xs text-ink-muted">
+            {note}
           </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              className={`${btnSecondary} flex-1`}
-              onClick={() => onConfirm(file)}
-            >
-              Use original
-            </button>
-            <button
-              type="button"
-              className={`${btnPrimary} flex-1`}
-              onClick={() => onCropInstead(file)}
-            >
-              Crop instead
-            </button>
-          </div>
-          <button
-            type="button"
-            className="w-full text-center text-sm text-ink-muted hover:underline"
-            onClick={onCancel}
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <div className="mx-auto mt-4 w-full max-w-md space-y-2">
-          <div className="flex gap-3">
-            <button
-              type="button"
-              className={`${btnSecondary} flex-1`}
-              onClick={onCancel}
-              disabled={status === "flattening"}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={`${btnPrimary} flex-1`}
-              onClick={flatten}
-              disabled={status !== "ready"}
-            >
-              {status === "flattening" ? "Flattening…" : "Flatten & use"}
-            </button>
-          </div>
-          <button
-            type="button"
-            className="w-full text-center text-sm text-ink-muted hover:underline"
-            onClick={() => onCropInstead(file)}
-            disabled={status === "flattening"}
-          >
-            Crop instead (no flatten)
-          </button>
-        </div>
-      )}
+        ) : null}
+
+        {status === "error" ? (
+          <>
+            <p className="rounded-xl border border-line bg-card p-3 text-center text-sm text-ink">
+              Couldn't flatten this photo on this device. Use the original, or
+              crop it manually.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className={`${btnSecondary} flex-1`}
+                onClick={() => onConfirm(file)}
+              >
+                Use original
+              </button>
+              <button
+                type="button"
+                className={`${btnPrimary} flex-1`}
+                onClick={() => onCropInstead(file)}
+              >
+                Crop instead
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className={`${btnSecondary} flex-1`}
+                onClick={() => onConfirm(file)}
+                disabled={busy}
+              >
+                Use photo
+              </button>
+              <button
+                type="button"
+                className={`${btnPrimary} flex-1`}
+                onClick={flatten}
+                disabled={busy}
+              >
+                {status === "flattening" ? "Flattening…" : "Flatten & use"}
+              </button>
+            </div>
+            <div className="flex items-center justify-center gap-4 pt-1 text-sm text-ink-muted">
+              <button
+                type="button"
+                className="hover:underline disabled:opacity-50"
+                onClick={autoDetect}
+                disabled={busy}
+              >
+                ✨ Auto-detect
+              </button>
+              <span aria-hidden>·</span>
+              <button
+                type="button"
+                className="hover:underline disabled:opacity-50"
+                onClick={() => onCropInstead(file)}
+                disabled={busy}
+              >
+                Crop
+              </button>
+              <span aria-hidden>·</span>
+              <button
+                type="button"
+                className="hover:underline"
+                onClick={onCancel}
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

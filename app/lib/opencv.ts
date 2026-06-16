@@ -92,27 +92,52 @@ export interface Cv {
 
 const SCRIPT_ID = "opencv-js";
 const SCRIPT_SRC = "/opencv.js";
+/**
+ * Hard cap on WASM init. On memory-constrained devices (notably iOS Safari)
+ * the runtime can stall instantiating; without this the caller hangs forever.
+ * On timeout we reject AND clear the memo so a later attempt can retry.
+ */
+const LOAD_TIMEOUT_MS = 20_000;
 
 let cvPromise: Promise<Cv> | null = null;
-
-/** Resolve once the WASM runtime is live — immediately if it already is. */
-function whenReady(cv: Cv, resolve: (cv: Cv) => void): void {
-  if (typeof cv.Mat === "function") resolve(cv);
-  else cv.onRuntimeInitialized = () => resolve(cv);
-}
 
 export function loadOpenCv(): Promise<Cv> {
   cvPromise ??= new Promise<Cv>((resolve, reject) => {
     const win = window as unknown as { cv?: Cv };
+    let settled = false;
+
+    const succeed = (cv: Cv) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(cv);
+    };
+    const fail = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cvPromise = null; // allow a retry on the next attempt
+      reject(err);
+    };
+    const timer = setTimeout(
+      () => fail(new Error("OpenCV load timed out")),
+      LOAD_TIMEOUT_MS,
+    );
+
+    const whenReady = (cv: Cv) => {
+      if (typeof cv.Mat === "function") succeed(cv);
+      else cv.onRuntimeInitialized = () => succeed(cv);
+    };
+
     if (win.cv) {
-      whenReady(win.cv, resolve);
+      whenReady(win.cv);
       return;
     }
     const onLoad = () =>
       win.cv
-        ? whenReady(win.cv, resolve)
-        : reject(new Error("OpenCV loaded but window.cv is missing"));
-    const onError = () => reject(new Error("Failed to load OpenCV"));
+        ? whenReady(win.cv)
+        : fail(new Error("OpenCV loaded but window.cv is missing"));
+    const onError = () => fail(new Error("Failed to load OpenCV"));
 
     const existing = document.getElementById(
       SCRIPT_ID,
