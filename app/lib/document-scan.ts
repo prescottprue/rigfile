@@ -18,8 +18,37 @@ export type Quad = [Point, Point, Point, Point];
 
 /** Largest edge dimension the detector runs at — keeps it fast on phones. */
 const DETECT_MAX = 1000;
+/**
+ * Largest edge dimension the warp runs at. Full phone photos (12MP+) decode
+ * into ~50MB RGBA Mats that crash iOS Safari; this caps peak memory. The
+ * scan flow downscales to 1600px afterward anyway, and a flattened document
+ * at 2000px is plenty legible / OCR-friendly.
+ */
+const WARP_MAX = 2000;
 /** A candidate quad must cover at least this fraction of the frame. */
 const MIN_AREA_FRACTION = 0.2;
+/** Guard against a decode that never settles (malformed/huge input). */
+const DECODE_TIMEOUT_MS = 15_000;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
 
 export function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -74,21 +103,26 @@ export function defaultQuad(inset = 0.08): Quad {
 /** Decode a File to a canvas no larger than `maxDim`, orientation-corrected. */
 async function fileToCanvas(
   file: File,
-  maxDim?: number,
+  maxDim: number,
 ): Promise<HTMLCanvasElement | null> {
-  const bitmap = await createImageBitmap(file, {
-    imageOrientation: "from-image",
-  });
-  const scale = maxDim
-    ? Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height))
-    : 1;
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return canvas;
+  const bitmap = await withTimeout(
+    createImageBitmap(file, { imageOrientation: "from-image" }),
+    DECODE_TIMEOUT_MS,
+    "Image decode",
+  );
+  try {
+    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  } finally {
+    // Release the full-resolution bitmap promptly — critical on iOS.
+    bitmap.close();
+  }
 }
 
 /**
@@ -163,8 +197,9 @@ export async function detectDocumentQuad(file: File): Promise<Quad | null> {
 
 /**
  * Perspective-warp the four fractional corners onto a flat rectangle and
- * return a JPEG. The warp runs on the full-resolution image; corner order is
- * normalized first so a user-dragged quad can't invert the output.
+ * return a JPEG. The source is capped at WARP_MAX first (memory safety on
+ * iOS); corner order is normalized so a user-dragged quad can't invert the
+ * output.
  */
 export async function warpDocument(
   file: File,
@@ -172,7 +207,7 @@ export async function warpDocument(
   { quality = 0.92 }: { quality?: number } = {},
 ): Promise<File> {
   const cv = await loadOpenCv();
-  const canvas = await fileToCanvas(file);
+  const canvas = await fileToCanvas(file, WARP_MAX);
   if (!canvas) return file;
 
   const quad = orderCorners(
